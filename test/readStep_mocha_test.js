@@ -5,9 +5,10 @@ var util = require("util");
 
 function dumpAssemblies(reader) {
           var sdrs = reader.getObjects("SHAPE_DEFINITION_REPRESENTATION");
+          fs.writeFile("toto.out",JSON.stringify({ array: sdrs},null," "));// util.inspect(sdrs,{depth: 30}));
           sdrs.forEach(function(sdr){ 
 	            console.log("=================================================================================");
-                    //console.log(util.inspect(sdr,{ colors: true, depth:10}));
+                    // console.log(util.inspect(sdr,{ colors: true, depth:10}));
                     console.log(" NAME = ".yellow ,sdr.definition.name , sdr.definition.description.yellow); 
                     if ( sdr.definition.definition._class === 'PRODUCT_DEFINITION') {
                       console.log(" name      =",sdr.definition.definition.formation.of_product.name.cyan)
@@ -48,7 +49,6 @@ describe("test reading anchor.step", function() {
       reader.read("parts/anchor.step",function(err) {
           done();
       });
-  
    });
 
    it("should have 6 'product definition's",function( done) {
@@ -91,6 +91,29 @@ describe(" read file 1797609in.stp " , function() {
       });
    });
 });
+
+function testAndDump(filename) {
+
+  describe("test large assembly : " + filename, function() {
+    var reader = new STEP.StepReader();
+    before(function( done) {
+      reader.read(/*"parts/Planetary Gearbox.stp"*/filename,function(err) {
+          done();
+      });
+    });
+
+    it(" should read without error", function(done) {
+       reader.dumpStatistics();
+       dumpAssemblies(reader);
+       console.log(" nbShapes = ", reader.getObjects("SHAPE_DEFINITION_REPRESENTATION").length);
+       done();
+     });
+   });
+}
+testAndDump("parts/Planetary Gearbox.stp");
+testAndDump("parts/IAME X30.stp");
+testAndDump("parts/407169p088.stp");
+
 var fs  =require("fs");
 var path = require("path");
 var walk = require("walk");

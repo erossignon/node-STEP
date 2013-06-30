@@ -2,3 +2,5 @@
 
 /*.swp
 *.swp
+node_modules
+/*.out
