@@ -3,9 +3,16 @@ var should = require("should");
 var util = require("util");
 
 
+function bindShapeRelationship(reader) {
+    // search for SHAPE_REPRESENTATION_RELATIONSHIP and create links
+    var srrs = reader.getObjects("SHAPE_REPRESENTATION_RELATIONSHIP");
+
+
+}
 function dumpAssemblies(reader) {
           var sdrs = reader.getObjects("SHAPE_DEFINITION_REPRESENTATION");
-          fs.writeFile("toto.out",JSON.stringify({ array: sdrs},null," "));// util.inspect(sdrs,{depth: 30}));
+          var srrs = reader.getObjects("SHAPE_REPRESENTATION_RELATIONSHIP");
+          fs.writeFile("toto.out",JSON.stringify({ sdrs: sdrs , srrs: srrs},null," "));// util.inspect(sdrs,{depth: 30}));
           sdrs.forEach(function(sdr){ 
 	            console.log("=================================================================================");
                     // console.log(util.inspect(sdr,{ colors: true, depth:10}));
@@ -25,9 +32,12 @@ function dumpAssemblies(reader) {
                               var mr = item.mapping_source.mapped_representation;
                               console.log(" -------------------> ", mr._id, mr._class);
                               dumpABSR(mr);
-                        } else {
-                        };
-                     });
+                           } else if(item._class === "AXIS2_PLACEMENT_3D" ) {
+                              console.log(" -------------------> ",item._id,item._class); 
+                           } else {
+                              console.log(" ?????-------------------> ",item._id,item._class); 
+                           };
+                        });
                    } else if ( sdr.used_representation._class === "ADVANCED_BREP_SHAPE_REPRESENTATION") {
                         dumpABSR(sdr.used_representation);
  			function dumpABSR(absr) {
@@ -37,7 +47,7 @@ function dumpAssemblies(reader) {
                              }); 
                         };
                    } else {
-                        console.log(" ERROR : !!! ", sdr.used_representation);
+                        console.log(" ERROR : !!! ".red, sdr.used_representation);
                    }
           });
 };
@@ -51,9 +61,9 @@ describe("test reading anchor.step", function() {
       });
    });
 
-   it("should have 6 'product definition's",function( done) {
+   it("should have 7 'product definition's",function( done) {
 
-          reader.getObjects("PRODUCT_DEFINITION").should.have.length(6);
+          reader.getObjects("PRODUCT_DEFINITION").should.have.length(7);
           // console.log(util.inspect(reader.getObjects("PRODUCT_DEFINITION")[0],{ colors: true, depth:10}));
           done();
    });
@@ -95,6 +105,7 @@ describe(" read file 1797609in.stp " , function() {
 function testAndDump(filename) {
 
   describe("test large assembly : " + filename, function() {
+    this.timeout(100000);
     var reader = new STEP.StepReader();
     before(function( done) {
       reader.read(/*"parts/Planetary Gearbox.stp"*/filename,function(err) {
@@ -113,7 +124,8 @@ function testAndDump(filename) {
 testAndDump("parts/Planetary Gearbox.stp");
 testAndDump("parts/IAME X30.stp");
 testAndDump("parts/407169p088.stp");
-
+testAndDump("parts/vaccase_asm_solid.stp");
+testAndDump("parts/instrux_sep13g.stp");
 var fs  =require("fs");
 var path = require("path");
 var walk = require("walk");

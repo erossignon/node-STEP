@@ -71,8 +71,10 @@ StepIndexer.prototype._splitComplexLine = function (line) {
       var content = line.substr(s,i-s+1);
       i++;
       //xx console.log(identifier.yellow , " = ",content.bold.blue)
-      var typeIndex = me._getTypeIndex(identifier);
-      array.push({ type: typeIndex.key, args: content});
+      if ( identifier !== '' ) {
+        var typeIndex = me._getTypeIndex(identifier);
+        array.push({ type: typeIndex.key, args: content});
+      }
   }
   return array;
 }
@@ -115,10 +117,10 @@ StepIndexer.prototype.write = function (data) {
        } else {
           // complex
 	  var num  = me.curNum;
-          var entry = { _id: num , elements : me._splitComplexLine(me.curLine) };
+          var entry = { _id: num , types : me._splitComplexLine(me.curLine) };
 	  me.lines[num] = entry;
           // console.log("line=", me.curLine);
-          entry.elements.forEach(function(element) {
+          entry.types.forEach(function(element) {
               var type = element.type;
 	      var typeIndex = me._getTypeIndex(type);
 	      typeIndex.array.push(num);
@@ -243,12 +245,46 @@ registerParser('APPLICATION_CONTEXT'    , "",
 	 { name: 'application'		, type: 'S' }
 	 // { name: 'context_elements'     , type:'[#]' APPLICATION_CONTEXT_ELEMENT
 ]);
+
 registerParser('SHAPE_DEFINITION_REPRESENTATION', "PROPERTY_DEFINITION_REPRESENTATION",
 [
 	{ name: "definition"            , type: '#' , class: "REPRESENTED_DEFINITION" },
 	{ name: "used_representation"   , type: '#' , class: "REPRESENTATION"  },
 
-])
+]);
+
+registerParser('REPRESENTATION_RELATIONSHIP','',[
+      	{  name: "name"		 	, type: 'L'  }, 
+        {  name: "description"          , type: 'S'  },
+        {  name: "rep_1"       		, type: '#' , class: "REPRESENTATION"  },
+        {  name: "rep_2"       		, type: '#' , class: "REPRESENTATION"  }
+]);
+registerParser('REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION','REPRESENTATION_RELATIONSHIP',
+[
+      	{  name: "name"		 	, type: 'L'  }, 
+        {  name: "description"          , type: 'S'  },
+        {  name: "rep_1"       		, type: '#' , class: "REPRESENTATION"  },
+        {  name: "rep_2"       		, type: '#' , class: "REPRESENTATION"  },
+        {  name: "transformation_operator",type: '#', class: "TRANSFORMATION"  }
+
+]);
+registerParser('SHAPE_REPRESENTATION_RELATIONSHIP','REPRESENTATION_RELATIONSHIP',
+[
+      	{  name: "name"		 	, type: 'L'  }, 
+        {  name: "description"          , type: 'S'  },
+        {  name: "rep_1"       		, type: '#' , class: "REPRESENTATION"  },
+        {  name: "rep_2"       		, type: '#' , class: "REPRESENTATION"  }
+
+]);
+
+registerParser('SHAPE_DEFINITION_RELATIONSHIP', "REPRESENTATION_RELATIONSHIP" ,
+[
+      	{  name: "name"		 	, type: 'L'  }, 
+        {  name: "description"          , type: 'S'  },
+        {  name: "rep_1"       		, type: '#' , class: "REPRESENTATION"  },
+        {  name: "rep_2"       		, type: '#' , class: "REPRESENTATION"  }
+]);
+
 registerSelect("REPRESENTED_DEFINITION",["PROPERTY_DEFINITION","PROPERTY_DEFINITION_RELATIONSHIP","SHAPE_ASPECT"]);
 
 registerParser('PROPERTY_DEFINITION',"",
@@ -339,6 +375,14 @@ registerParser('ADVANCED_BREP_SHAPE_REPRESENTATION','SHAPE_REPRESENTATION',
 	{  name: 'items'		, type: '[#]', class: 'REPRESENTATION_ITEM' },
         {  name: 'context_of_items'     , type: '#', class: 'REPRESENTATION_CONTEXT'}
 ]);
+
+registerParser('FACETED_BREP_SHAPE_REPRESENTATION','SHAPE_REPRESENTATION',
+[
+        {  name: 'name'			, type: 'L' },
+	{  name: 'items'		, type: '[#]', class: 'REPRESENTATION_ITEM' },
+        {  name: 'context_of_items'     , type: '#', class: 'REPRESENTATION_CONTEXT'}
+]);
+
  
 registerParser('GEOMETRIC_REPRESENTATION_ITEM','REPRESENTATION_ITEM',[]);
 registerParser('SOLID_MODEL','GEOMETRIC_REPRESENTATION_ITEM',[]);
@@ -351,7 +395,8 @@ registerParser('MANIFOLD_SOLID_BREP',"SOLID_MODEL",
 
 registerParser('BREP_WITH_VOIDS','MANIFOLD_SOLID_BREP', [ 
 ]);
-
+registerParser('FACETED_BREP', 'MANIFOLD_SOLID_BREP', [
+]);
 registerParser("_CLOSED_SHELL","CONNECTED_FACE_SET",
 [
 	{  name: 'name'               , type: 'S' },
@@ -400,32 +445,78 @@ registerParser("PRODUCT_DEFINITION_WITH_ASSOCIATED_DOCUMENTS","",[]);
 registerParser("GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION","",[]);
 registerParser("CSG_SHAPE_REPRESENTATION","",[]);
 
-StepIndexer.prototype.parse = function(entity,parser) {
+StepIndexer.prototype.parse = function(entity,parser)
+{
     var me = this;
+
+    var obj = {}
+    obj._id = entity._id;
 
     if ( entity.object  ) {
       // console.log( "######################################################### already processed ," , entity._id);
       return entity.object;
     }
     if (!parser ) {
-      var type = me.typesRev[entity.type];
-      parser  = parsers[type];
-      // console.log("type ", type,parser);
+      if ( entity.type ) {
+
+         var type = me.typesRev[entity.type];
+         parser  = parsers[type];
+         if ( !parser) {
+            console.log(" Error !!! cannot get parser for ".red, entity.type ," in ".red , type,entity);
+          }
+          me._parseType(obj,entity.line,parser);
+         // console.log("type ", type,parser);
+      } else {
+         assert(entity.types instanceof Array );
+         entity.types.forEach(function(el) {
+           var type = me.typesRev[el.type];
+           parser  = parsers[type];
+           if ( !parser) {
+              console.log(" Error !!! cannot get parser for ".yellow,type, " in ".yellow , entity);
+           } else {
+              me._parseType(obj,el.args,parser);
+           }
+         });
+      }
+    } else {
+      me._parseType(obj,entity.line,parser);
     }
-    var matches = parser.pattern.exec(entity.line);
+
+    entity.object = obj;
+    entity.line = null;
+
+    return obj;
+}
+
+StepIndexer.prototype._parseType = function(obj,entity_line,parser)
+{
+    // console.log("#", obj._id, "  parsing ".cyan,parser.pattern, ' on line ', entity_line);
+    var me = this;
+    var matches = parser.pattern.exec(entity_line);
     if (!matches) {
-       console.log("#", entity._id, " cannot parse ".red,parser.pattern, ' on line ', entity.line);
+       console.log("#", obj._id, parser.name, " cannot parse ".red,parser.pattern, ' on line ', entity_line);
        return;
     }
     if (matches.length-1 != parser.props.length) {
 	console.log(" warning : not enough element found in ".green);
     	console.log(" parsing ",((parser.pattern)+"").red)
-        console.log(" on line ", entity.line.cyan);
+        console.log(" on line ", entity_line.cyan);
     	console.log(matches);
     }
 
-    var obj = {}
-    obj._class = parser.name;
+    if (!obj._class) {
+       obj._class = parser.name;
+    } else {
+       if (obj instanceof Array)  {
+       } else {
+         var tmp = obj._class;
+         obj._class = [ tmp ];
+       }
+       obj._class.push(parser.name);
+    }
+
+
+
     for (var i=0;i<matches.length-1;i++) {
 	var p = parser.props[i];
 	var value = matches[i+1];
@@ -463,7 +554,6 @@ StepIndexer.prototype.parse = function(entity,parser) {
 		   if ( parsers[subtype] ) {
   	                return  me.parse(subline,parsers[subtype]);
 		   } else {
-                        console.log(" parsing ",entity);
 		        console.log(" Undefined parser for type ",subtype);
 		        return v;
 	           }
@@ -475,9 +565,6 @@ StepIndexer.prototype.parse = function(entity,parser) {
 		}
 	}	
     }
-    obj._id = entity._id;
-    entity.object = obj;
-    entity.line = null;
     // console.log(JSON.stringify(entity));
     return obj;
 };
