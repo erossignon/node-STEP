@@ -40,9 +40,7 @@ StepIndexer.prototype._getTypeIndex = function (strType) {
   }
   return typeIndex;
 }
-function trim(str) {
- return str.replace(/^\s+/g,'').replace(/\s+$/g,'');
-}
+function trim(str) { return str.replace(/^\s+/g,'').replace(/\s+$/g,''); }
 StepIndexer.prototype._splitComplexLine = function (line) {
   var me = this;
   var array = [];
@@ -161,20 +159,31 @@ function buildRegExp(t) {
 }
 
 parsers = {}
-function registerParser(name,inherit_from,props) {
+
+function buildSimplePattern(props) 
+{
   var s = "";
   props.forEach(function (p) { 
     s += "," + p.type; 
-  })
-  var simplePattern = s.slice(1);
+  });
+  return s.slice(1);
+}
+
+function registerParser(name,subTypeOf,props) 
+{
+
+  var simplePattern = buildSimplePattern(props);
   var pattern = buildRegExp(simplePattern);
   // console.log(" name = ",name, simplePattern);
   parsers[name] = {
+         type:   "ENTITY",
 	 pattern: pattern,
 	 props: props,
 	 name:  name,
+         subTypeOf: subTypeOf
   }
 }
+
 function registerSelect(name,select) {
    parsers[name] =  { 
       type: "SELECT",
@@ -303,6 +312,7 @@ registerParser('PRODUCT_DEFINITION_SHAPE', "PROPERTY_DEFINITION",
            {  name: 'definition'         , type: '#', class: "CHARACTERIZED_DEFINITION" } 
 ]);
 
+registerParser("DEFINITION", "" , []);
 
 registerParser( "PRODUCT_DEFINITION_USAGE","PRODUCT_DEFINITION_RELATIONSHIP",
 [

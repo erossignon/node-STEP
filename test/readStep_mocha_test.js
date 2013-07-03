@@ -6,17 +6,25 @@ var util = require("util");
 function bindShapeRelationship(reader) {
     // search for SHAPE_REPRESENTATION_RELATIONSHIP and create links
     var srrs = reader.getObjects("SHAPE_REPRESENTATION_RELATIONSHIP");
-
-
+    
+    srrs.forEach(function(srr) { 
+        var sr    = srr.rep_1 ; // shape representation
+        var shape = srr.rep_2;  //
+        sr._____shape = shape;
+    });
+   
 }
 function dumpAssemblies(reader) {
+
+          bindShapeRelationship(reader);
+
           var sdrs = reader.getObjects("SHAPE_DEFINITION_REPRESENTATION");
           var srrs = reader.getObjects("SHAPE_REPRESENTATION_RELATIONSHIP");
           fs.writeFile("toto.out",JSON.stringify({ sdrs: sdrs , srrs: srrs},null," "));// util.inspect(sdrs,{depth: 30}));
           sdrs.forEach(function(sdr){ 
 	            console.log("=================================================================================");
                     // console.log(util.inspect(sdr,{ colors: true, depth:10}));
-                    console.log(" NAME = ".yellow ,sdr.definition.name , sdr.definition.description.yellow); 
+                    console.log(" NAME = ".yellow ,sdr.definition.name , sdr);// , sdr.definition.description.yellow); 
                     if ( sdr.definition.definition._class === 'PRODUCT_DEFINITION') {
                       console.log(" name      =",sdr.definition.definition.formation.of_product.name.cyan)
                     } else {
@@ -126,6 +134,7 @@ testAndDump("parts/IAME X30.stp");
 testAndDump("parts/407169p088.stp");
 testAndDump("parts/vaccase_asm_solid.stp");
 testAndDump("parts/instrux_sep13g.stp");
+
 var fs  =require("fs");
 var path = require("path");
 var walk = require("walk");
