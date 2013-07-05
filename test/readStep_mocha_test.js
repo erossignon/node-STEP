@@ -1,7 +1,7 @@
 var STEP = require("../readStep");
 var should = require("should");
 var util = require("util");
-
+var assert = require("assert");
 
 function bindShapeRelationship(reader) {
     // search for SHAPE_REPRESENTATION_RELATIONSHIP and create links
@@ -14,6 +14,20 @@ function bindShapeRelationship(reader) {
     });
    
 }
+function find_nauo_relating_to(reader,product_definition_id) 
+{
+  var nauos = reader.getObjects("NEXT_ASSEMBLY_USAGE_OCCURRENCE");
+  assert(nauos.length > 0 );
+  var result = [];
+  nauos.forEach(function(nauo) { 
+    if (nauo.relating_product_definition === product_definition_id) {
+        // console.log(" NAUOS on " , product_definition_id, nauos)
+        console.log(" name      =",nauo.related_product_definition.formation.of_product.name.yellow.bold);
+        result.push(nauo.related_product_definition);
+    };
+  }); 
+  return result;
+}
 function dumpAssemblies(reader) {
 
           bindShapeRelationship(reader);
@@ -24,9 +38,13 @@ function dumpAssemblies(reader) {
           sdrs.forEach(function(sdr){ 
 	            console.log("=================================================================================");
                     // console.log(util.inspect(sdr,{ colors: true, depth:10}));
-                    console.log(" NAME = ".yellow ,sdr.definition.name , sdr);// , sdr.definition.description.yellow); 
+                    console.log(" NAME = ".yellow ,sdr.definition.name );// , sdr.definition.description.yellow); 
                     if ( sdr.definition.definition._class === 'PRODUCT_DEFINITION') {
                       console.log(" name      =",sdr.definition.definition.formation.of_product.name.cyan)
+                      var pd = sdr.definition.definition;
+                      var sub_parts = find_nauo_relating_to(reader,pd); 
+                      //if  (sub_parts.length > 0 ) throw new Error("TTT"); 
+                      
                     } else {
                       console.log(" relating  = ",sdr.definition.definition.relating_product_definition.formation.of_product.name);
                       console.log(" related   = ",sdr.definition.definition.related_product_definition.formation.of_product.name);
