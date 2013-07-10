@@ -17,17 +17,26 @@ function bindShapeRelationship(reader) {
 function find_nauo_relating_to(reader,product_definition_id) 
 {
   var nauos = reader.getObjects("NEXT_ASSEMBLY_USAGE_OCCURRENCE");
-  assert(nauos.length > 0 );
+  // assert(nauos.length > 0 );
   var result = [];
   nauos.forEach(function(nauo) { 
     if (nauo.relating_product_definition === product_definition_id) {
         // console.log(" NAUOS on " , product_definition_id, nauos)
-        console.log(" name      =",nauo.related_product_definition.formation.of_product.name.yellow.bold);
+        // console.log("  name      =",nauo.related_product_definition._id,nauo.related_product_definition.formation.of_product.name.yellow.bold);
         result.push(nauo.related_product_definition);
     };
   }); 
   return result;
 }
+
+function dumpRecursiveNAUOS(reader,pd,level) {
+   var sub_parts = find_nauo_relating_to(reader,pd);
+   sub_parts.forEach(function (rpd ) {
+        console.log("                   ".substr(0,level*2) + "  name      =",rpd._id,rpd.formation.of_product.name.yellow.bold);
+        dumpRecursiveNAUOS(reader,rpd,level+1);
+   });
+}
+
 function dumpAssemblies(reader) {
 
           bindShapeRelationship(reader);
@@ -40,9 +49,10 @@ function dumpAssemblies(reader) {
                     // console.log(util.inspect(sdr,{ colors: true, depth:10}));
                     console.log(" NAME = ".yellow ,sdr.definition.name );// , sdr.definition.description.yellow); 
                     if ( sdr.definition.definition._class === 'PRODUCT_DEFINITION') {
-                      console.log(" name      =",sdr.definition.definition.formation.of_product.name.cyan)
+                      console.log(" name      =",sdr.definition.definition._id,sdr.definition.definition.formation.of_product.name.cyan)
                       var pd = sdr.definition.definition;
                       var sub_parts = find_nauo_relating_to(reader,pd); 
+                      dumpRecursiveNAUOS(reader,pd,1); 
                       //if  (sub_parts.length > 0 ) throw new Error("TTT"); 
                       
                     } else {
