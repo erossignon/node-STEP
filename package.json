@@ -1,0 +1,40 @@
+{
+  "name": "node-STEP",
+  "version": "0.0.1",
+  "description": "analyse and explore STEP (ISO 10303) file format with node",
+  "main": "bin/dumpSTEP.js",
+  "bin": {},
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/erossignon/node-STEP.git"
+  },
+  "keywords": [
+    "STEP",
+    "ISO1303",
+    "CAD",
+    "3D",
+    "AP201",
+    "AP203",
+    "AP204"
+  ],
+  "author": "Etienne Rossignon",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/erossignon/node-STEP/issues"
+  },
+  "devDependencies": {
+    "colors": "~0.6.2"
+  },
+  "dependencies": {
+    "colors": "~0.6.2",
+    "should": "~1.2.2",
+    "walk": "~2.2.1"
+  }
+}
