@@ -1,5 +1,5 @@
 {
-  "name": "node-STEP",
+  "name": "node-step",
   "version": "0.0.1",
   "description": "analyse and explore STEP (ISO 10303) file format with node",
   "main": "bin/dumpSTEP.js",
