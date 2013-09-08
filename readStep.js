@@ -732,7 +732,7 @@ function readStep(filename, callback) {
 function check_STEP_file(filename,callback) {
     // "ISO-10303-21;"
     // "HEADER;"
-    fs.createReadStream(filename,"r");
+    var stream = fs.createReadStream(filename,"r");
 
     var fileData = "";
     stream.on('data', function(data){
@@ -744,20 +744,28 @@ function check_STEP_file(filename,callback) {
         if(lines.length >= 2){
 
             stream.destroy();
-            if (!pattern_ISO_10303_21.test(line[0])) {
-                callback(new Error("this file is not a STEP FILE : ISO_10303_21 missing"));
+            if (!pattern_ISO_10303_21.test(lines[0])) {
+                my_callback(new Error("this file is not a STEP FILE : ISO_10303_21 missing"));
             } else {
-                callback(null, lines[+line_no]);
+                my_callback(null, lines[0]);
             }
         }
     });
     stream.on('error', function(){
-        callback('Error', null);
+        my_callback('Error', null);
     });
 
     stream.on('end', function(){
-        callback('File end reached without finding line', null);
+        my_callback('File end reached without finding line', null);
     });
+
+    var callback_called = false;
+    function my_callback(err,data) {
+        if (!callback_called) {
+            callback_called= true;
+            callback(err,data);
+        }
+    }
 }
 function StepReader() {
 }

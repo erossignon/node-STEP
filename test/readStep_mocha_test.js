@@ -120,4 +120,34 @@ describe(" testing on all step files", function () {
     });
 });
 
+describe(" testing if a file is a STEP file ",function() {
 
+    it("should return an error if the file is not a STEP file",function(done){
+
+
+         var filename = "./readStep.js";
+         STEP.check_STEP_file(filename,function(err){
+                if (err) {
+                    done();
+                    return;
+                }
+                assert(false);
+                done();
+        });
+
+    })
+    it("should return TRUE if the file is a STEP file",function(done){
+
+
+        var filename = "./parts/anchor.step";
+        STEP.check_STEP_file(filename,function(err){
+            if (err) {
+                assert(false);
+                done();
+                return;
+            }
+            done();
+        });
+
+    })
+})
