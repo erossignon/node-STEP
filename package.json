@@ -1,8 +1,8 @@
 {
   "name": "node-step",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "analyse and explore STEP (ISO 10303) file format with node",
-  "main": "bin/dumpSTEP.js",
+  "main": "readStep.js",
   "bin": {},
   "directories": {
     "doc": "docs",
@@ -35,6 +35,9 @@
   "dependencies": {
     "colors": "~0.6.2",
     "should": "~1.2.2",
-    "walk": "~2.2.1"
+    "walk": "~2.2.1",
+    "cli-table": "~0.2.0",
+    "archy": "0.0.2",
+    "easy-table": "~0.2.0"
   }
 }
