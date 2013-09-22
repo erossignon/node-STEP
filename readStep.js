@@ -922,14 +922,16 @@ StepReader.prototype.dumpAssemblies = function () {
     sdrs.forEach(function (sdr) {
 
         var node = {
-            label: sdr.definition.definition._id + " SDR:".yellow + sdr.definition.name ,
+            label: sdr._id + " SDR:".yellow + sdr.definition.name ,
             nodes: []
         };
         var ur_node = {
-            label : "used_representation = "+sdr.used_representation._class.white,
+            label : "used_representation = "+sdr.used_representation._id + " "+ sdr.used_representation._class.white ,
             nodes:[]
         };
+
         node.nodes.push(ur_node);
+
 
         root.nodes.push(node);
 
@@ -941,7 +943,7 @@ StepReader.prototype.dumpAssemblies = function () {
 
             //xx console.log(" name      =", sdr.definition.definition._id, sdr.definition.definition.formation.of_product.name.cyan);
             var sub_node = {
-                label: "PD:".yellow + sdr.definition.definition._id + " " + sdr.definition.definition.formation.of_product.name.cyan,
+                label: "definition" + " PD:".yellow + sdr.definition.definition._id + " " + sdr.definition.definition.formation.of_product.name.cyan,
                 nodes: []
             };
             node.nodes.push(sub_node);

@@ -38,6 +38,7 @@
     "walk": "~2.2.1",
     "cli-table": "~0.2.0",
     "archy": "0.0.2",
-    "easy-table": "~0.2.0"
+    "easy-table": "~0.2.0",
+    "jison": "~0.4.13"
   }
 }

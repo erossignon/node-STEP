@@ -22,3 +22,9 @@ It focuses in exploring part assemblies inside STEP files as per AP 203.
 
  });
 
+
+see also : http://www.steptools.com/support/stdev_docs/express/ap203/walkasm.html
+
+to generate the EXPRESS parser with jison
+
+              $ node node_modules/jison/lib/cli.js express_parser.jison

@@ -1,6 +1,6 @@
 var STEP = require("../readStep");
 var should = require("should");
-var assert = require("assert")
+var assert = require("assert");
 
 
 describe("test reading anchor.step", function () {
