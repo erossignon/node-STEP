@@ -9,6 +9,7 @@ function parseSchema(input,callback) {
     if (!success)  {
         callback(new Error("Error !"),null)
     } else {
+        //console.log(parser.yy.grammar);
         callback(null,parser.yy.grammar);
     }
 

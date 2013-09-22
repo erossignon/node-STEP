@@ -77,6 +77,7 @@ WHERE               return 'WHERE';
 '-'                 return '-';
 '+'                 return '+';
 '\\'                return '\\';
+<<EOF>>             return 'EOF';
 
 
 
@@ -90,8 +91,10 @@ WHERE               return 'WHERE';
 
 %% /* language grammar */
 
-expressions : expression
-            | expression expressions
+_expressions : expression
+             | _expressions  expression
+             ;
+expressions : _expressions EOF
             ;
 
 bag_or_set  : BAG
@@ -128,8 +131,6 @@ optional_abstract :
 expression:
         SCHEMA identifier ';'
         {
-           // console.log(" identifier ",$2);
-           yy.grammar = {};
 
         }
         | END_SCHEMA';'
@@ -145,12 +146,30 @@ expression:
             optional_derive
             optional_where_rules
           END_ENTITY ';'
+                {
+                        // console.log(" ENTITY-A" , $2);
+                        var name =  $2;
+                        yy.grammar[name] = {
+                            type: "entity",
+                            entity: name,
+                            // props:  yy.props,
+                         };
+                }
         | ENTITY identifier optional_abstract';'
             optional_inverse
             optional_unique
             optional_derive
             optional_where_rules
           END_ENTITY ';'
+                {
+                        // console.log(" ENTITY-B" , $2);
+                        var name =  $2 ;
+                        yy.grammar[name] = {
+                            type: "entity",
+                            entity: name,
+                            // props:  yy.props,
+                        };
+                }
         | RULE identifier FOR '(' list_id ')' ';'
           optional_where_rules
           END_RULE ';'
@@ -203,7 +222,6 @@ constant : identifier ":" constant_b
 list_id  : identifier
             {
                $$ = [ $1 ];
-               // console.log(" A =",$$);
             }
          | identifier ANDOR identifier
             {
@@ -211,8 +229,6 @@ list_id  : identifier
             }
          | identifier ',' list_id
            {
-              //console.log(" B =",$1,$3);
-              // $$ = $3
               $$ = $3
               $3.unshift($1);
            }
@@ -296,7 +312,6 @@ rules            :  rule  ';'
 range            : '[' NUMBER ':' '?' ']'
 
                     {
-                       // console.log("range !!!",$2);
                     }
 
                  |  '[' NUMBER ':' NUMBER ']'
@@ -305,7 +320,6 @@ range            : '[' NUMBER ':' '?' ']'
                  ;
 type_declaration :   identifier "=" ENUMERATION OF '(' list_id ')' ';'
                      {
-                         // console.log(" ",$1,"ENUMERATION OF ", $6);
                          var name = $1;
                          var list = $6;
                          yy.grammar[name] = {
