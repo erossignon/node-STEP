@@ -1,4 +1,5 @@
 %lex
+var expressSchemaBuilder = require("expressSchemaBuiler");
 
 %%
 \s+                 /* skip whitespace */
@@ -94,7 +95,8 @@ WHERE               return 'WHERE';
 _expressions : expression
              | _expressions  expression
              ;
-expressions : _expressions EOF
+expressions :
+              _expressions EOF
             ;
 
 bag_or_set  : BAG
@@ -102,14 +104,67 @@ bag_or_set  : BAG
             ;
 optional_inverse:| INVERSE identifier ':' bag_or_set range OF identifier FOR identifier ';'
         ;
-optional_abstract_el:
-                   ABSTRACT SUPERTYPE
+
+abstract_el      : ABSTRACT SUPERTYPE
+                     {
+                       $$ = {
+                           abstract: "ABSTRACT_SUPERTYPE",
+                       };
+                     }
                  | SUBTYPE OF '(' list_id ')'
+                     {
+                        list_id = $4;
+                        $$ = {
+                            abstract: "SUBTYPE_OF",
+                            list_id: list_id
+                        };
+                     }
+
                  | SUBTYPE OF '('  ONEOF '('  list_id ')' ')'
+                     {
+                        list_id = $6;
+                        $$ = {
+                            abstract: "SUBTYPE_OF_ONEOF",
+                            list_id: list_id
+                        };
+                     }
+
                  | SUPERTYPE OF '(' list_id ')'
+                     {
+                        list_id = $4;
+                        $$ = {
+                            abstract: "SUPERTYPE_OF",
+                            list_id: list_id
+                        };
+                     }
                  | SUPERTYPE OF '(' ONEOF '(' list_id ')' ')'
+                     {
+                        list_id = $6;
+                        $$ = {
+                            abstract: "SUBTYPE_OF_ONEOF",
+                            list_id: list_id
+                        };
+                     }
                  | SUPERTYPE OF '(' ONEOF '(' list_id ')' ANDOR identifier ')'
+                     {
+                        list_id = $6;
+                        identifier = $9;
+                        $$ = {
+                            abstract: "SUBTYPE_OF_ONEOF_ANDOR",
+                            list_id: list_id,
+                            andor:   identifier
+                        };
+                     }
                  | SUPERTYPE OF '(' ONEOF '(' list_id ')' ANDOR ONEOF '('  list_id ')' ')'
+                     {
+                        list_id = $6;
+                        identifier_list_id = $11;
+                        $$ = {
+                            abstract: "SUBTYPE_OF_ONEOF_ANDOR_ONEOF",
+                            list_id: list_id,
+                            andor:   identifier_list_id
+                        };
+                     }
                  ;
 
 optional_derive  :| DERIVE list_der
@@ -123,10 +178,22 @@ list_der_item     :  identifier ':' composite_type ':=' expr2   ';'
                   |  SELF '\\' identifier ':' composite_type ':=' expr2   ';'
                   |  SELF '\\' identifier '.' identifier ':' composite_type ':=' expr2   ';'
                   ;
-optional_abstract :
-                  | optional_abstract_el
-                  | optional_abstract_el optional_abstract_el
-                  | optional_abstract_el optional_abstract_el optional_abstract_el
+optional_abstract : /* nothing */
+                    {
+                        $$ = null;
+                    }
+                  | abstract_el
+                     {
+                        $$ = $1;
+                     }
+                  | abstract_el abstract_el
+                     {
+                        $$ = [ $1 , $2 ];
+                     }
+                  | abstract_el abstract_el abstract_el
+                     {
+                        $$ = [ $1 , $2 , $3 ];
+                     }
                   ;
 expression:
         SCHEMA identifier ';'
@@ -139,7 +206,7 @@ expression:
 
         | TYPE type END_TYPE ';'
 
-        | ENTITY identifier optional_abstract';'
+        | ENTITY identifier optional_abstract ';'
             entity_description
             optional_inverse
             optional_unique
@@ -147,13 +214,16 @@ expression:
             optional_where_rules
           END_ENTITY ';'
                 {
-                        // console.log(" ENTITY-A" , $2);
                         var name =  $2;
-                        yy.grammar[name] = {
-                            type: "entity",
-                            entity: name,
-                            // props:  yy.props,
-                         };
+
+                        var abstract = $3;
+
+                        options = {}
+                        options.properties = $5;
+                        if (abstract != null) {
+                            options.abstract = abstract;
+                        }
+                        yy.grammar.add_entity(name,options);
                 }
         | ENTITY identifier optional_abstract';'
             optional_inverse
@@ -164,11 +234,13 @@ expression:
                 {
                         // console.log(" ENTITY-B" , $2);
                         var name =  $2 ;
-                        yy.grammar[name] = {
-                            type: "entity",
-                            entity: name,
-                            // props:  yy.props,
-                        };
+                        var abstract = $3;
+                        options = {}
+                        options.properties = [];
+                        if (abstract != null) {
+                            options.abstract = abstract;
+                        }
+                        yy.grammar.add_entity(name,options);
                 }
         | RULE identifier FOR '(' list_id ')' ';'
           optional_where_rules
@@ -186,17 +258,71 @@ optional_OPTIONAL :
                   ;
 
 composite_type : basic_type
+                    {
+                        $$ = $1;
+                    }
                | identifier
+                    {
+                        $$ = $1;
+                    }
                | LIST  range OF composite_type
+                    {
+                        composite_type = $4;
+                        $$ = "LIST RANGE ..." + composite_type;
+                    }
                | LIST  range OF UNIQUE composite_type
+                    {
+                        composite_type = $5;
+                        $$ = "LIST RANGE OF UNIQUE ..." + composite_type;
+                    }
                | SET   range OF composite_type
+                    {
+                        composite_type = $4;
+                        $$ = "SET RANGE OF  ..." + composite_type;
+                    }
                | ARRAY range OF composite_type
+                    {
+                        composite_type = $4;
+                        $$ = "ARRAY RANGE OF  ..." + composite_type;
+                    }
                ;
+
+
 entity_prop : identifier ':' composite_type ';'
+                  {
+
+                    identifier     = $1;
+                    composite_type = $3;
+                    $$ = {
+                        identifier: identifier,
+                        composite_type: composite_type,
+                        optional: false
+                    }
+                  }
             | identifier ':' OPTIONAL composite_type ';'
+                  {
+                        identifier     = $1;
+                        composite_type = $4;
+
+                        $$ = {
+                            identifier: identifier,
+                            composite_type: composite_type,
+                            optional: true
+                        }
+                }
             ;
+
+
 entity_description : entity_prop
+                      {
+                        $$ = [ $1 ];
+
+                      }
                    | entity_prop  entity_description
+                      {
+                        $$ = $2;
+                        $$.unshift($1);
+                      }
                    ;
 constants: constant
          | constant constants
@@ -321,11 +447,8 @@ range            : '[' NUMBER ':' '?' ']'
 type_declaration :   identifier "=" ENUMERATION OF '(' list_id ')' ';'
                      {
                          var name = $1;
-                         var list = $6;
-                         yy.grammar[name] = {
-                            type: "enumeration",
-                            enum: $6
-                         };
+                         var values = $6;
+                         yy.grammar.add_enumeration(name,values);
                      }
                  |   identifier "=" LIST range OF  identifier  ';'
                  |   identifier "=" SET  range OF  identifier  ';'

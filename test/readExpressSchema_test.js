@@ -19,11 +19,11 @@ describe("test parsing entity",function(){
               if (err) {
                   done(err);
               } else {
-                  console.log("grammar",JSON.stringify(grammar,null," "))
-                  grammar.should.have.property("ahead_or_behind");
+                  // console.log("enumerations",JSON.stringify(grammar.enumerations,null," "))
+                  grammar.enumerations.should.have.property("ahead_or_behind");
 
-                  grammar.ahead_or_behind.type.should.equal("enumeration");
-                  grammar.ahead_or_behind.enum.should.eql(['ahead','behind']);
+                  grammar.enumerations.ahead_or_behind.type.should.equal("enumeration");
+                  grammar.enumerations.ahead_or_behind.enum.should.eql(['ahead','behind']);
 
                   done();
               }
@@ -43,11 +43,11 @@ describe("test parsing entity",function(){
              " END_TYPE; -- source           \n"+
              "          \n"+
              " ENTITY product_definition_formation; \n"+
-             "          id          : identifier;      \n"+
-             "          description : text;            \n"+
-             "          of_product  : product;         \n"+
-             "          UNIQUE                         \n"+
-             "          ur1 : id, of_product;         \n"+
+             "          id          : identifier;   \n"+
+             "          description : text;         \n"+
+             "          of_product  : product;      \n"+
+             "          UNIQUE                      \n"+
+             "          ur1 : id, of_product;       \n"+
              " END_ENTITY; -- product_definition_formation\n"+
              "          \n"+
              " ENTITY product_definition_formation_with_specified_source      \n"+
@@ -63,15 +63,15 @@ describe("test parsing entity",function(){
               } else {
                   // console.log("grammar",JSON.stringify(grammar,null," "))
 
-                  grammar.should.have.property("source");
-                  grammar.source.type.should.equal("enumeration");
-                  grammar.source.enum.should.eql(['made','bought','not_known']);
+                  grammar.enumerations.should.have.property("source");
+                  grammar.enumerations.source.type.should.equal("enumeration");
+                  grammar.enumerations.source.enum.should.eql(['made','bought','not_known']);
 
-                  grammar.should.have.property("product_definition_formation");
-                  grammar.product_definition_formation.type.should.equal("entity");
+                  grammar.entities.should.have.property("product_definition_formation");
+                  grammar.entities.product_definition_formation.type.should.equal("entity");
 
-                  grammar.should.have.property("product_definition_formation_with_specified_source");
-                  grammar.product_definition_formation_with_specified_source.type.should.equal("entity");
+                  grammar.entities.should.have.property("product_definition_formation_with_specified_source");
+                  grammar.entities.product_definition_formation_with_specified_source.type.should.equal("entity");
                   done();
               }
           });
@@ -80,6 +80,26 @@ describe("test parsing entity",function(){
       this.timeout(10000);
       it("should parse complete schema",function(done){
 
-          SCHEMA.readSchema("specs/wg3n916_ap203.exp",done);
+          SCHEMA.readSchema("specs/wg3n916_ap203.exp",function(err,grammar) {
+             if (err) {
+                 done(err);
+             } else {
+                 grammar.enumerations.should.have.property("source");
+                 grammar.enumerations.source.type.should.equal("enumeration");
+                 grammar.enumerations.source.enum.should.eql(['made','bought','not_known']);
+
+                 grammar.entities.should.have.property("product_definition_formation");
+                 grammar.entities.product_definition_formation.type.should.equal("entity");
+
+                 grammar.entities.should.have.property("product_definition_formation_with_specified_source");
+                 grammar.entities.product_definition_formation_with_specified_source.type.should.equal("entity");
+
+                 grammar.entities.should.have.property("surface_of_revolution");
+                 grammar.entities['surface_of_revolution'].type.should.equal("entity");
+
+                 done();
+
+             }
+          });
       });
 });

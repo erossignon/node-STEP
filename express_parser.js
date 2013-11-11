@@ -74,7 +74,7 @@
 var express_parser = (function(){
 var parser = {trace: function trace() { },
 yy: {},
-symbols_: {"error":2,"expressions":3,"expression":4,"EOF":5,"bag_or_set":6,"BAG":7,"SET":8,"optional_inverse":9,"INVERSE":10,"identifier":11,":":12,"range":13,"OF":14,"FOR":15,";":16,"optional_abstract_el":17,"ABSTRACT":18,"SUPERTYPE":19,"SUBTYPE":20,"(":21,"list_id":22,")":23,"ONEOF":24,"ANDOR":25,"optional_derive":26,"DERIVE":27,"list_der":28,"list_der_item":29,"composite_type":30,":=":31,"expr2":32,"SELF":33,"\\\\":34,".":35,"optional_abstract":36,"SCHEMA":37,"END_SCHEMA":38,"CONSTANT":39,"constants":40,"END_CONSTANT":41,"TYPE":42,"type":43,"END_TYPE":44,"ENTITY":45,"entity_description":46,"optional_unique":47,"optional_where_rules":48,"END_ENTITY":49,"RULE":50,"END_RULE":51,"WHERE":52,"rules":53,"UNIQUE":54,"optional_OPTIONAL":55,"OPTIONAL":56,"basic_type":57,"LIST":58,"ARRAY":59,"entity_prop":60,"constant":61,"stuff":62,"string":63,"expr":64,"||":65,"'":66,"constant_b":67,",":68,"REAL":69,"INTEGER":70,"NUMBER":71,"STRING":72,"LOGICAL":73,"op":74,"<=":75,">=":76,"AND":77,"OR":78,"IN":79,"<*":80,"function":81,"EXISTS":82,"QUERY":83,"SIZEOF":84,"TYPEOF":85,"NVL":86,"USEDIN":87,"list_item":88,"list":89,"id2":90,"\\":91,"variable":92,"list_arguments":93,"<":94,">":95,"|":96,"<>":97,"*":98,"+":99,"-":100,"=":101,":<>:":102,":=:":103,"NOT":104,"[":105,"]":106,"rule":107,"?":108,"type_declaration":109,"ENUMERATION":110,"SELECT":111,"$accept":0,"$end":1},
+symbols_: {"error":2,"expressions":3,"expression":4,"EOF":5,"bag_or_set":6,"BAG":7,"SET":8,"optional_inverse":9,"INVERSE":10,"identifier":11,":":12,"range":13,"OF":14,"FOR":15,";":16,"abstract_el":17,"ABSTRACT":18,"SUPERTYPE":19,"SUBTYPE":20,"(":21,"list_id":22,")":23,"ONEOF":24,"ANDOR":25,"optional_derive":26,"DERIVE":27,"list_der":28,"list_der_item":29,"composite_type":30,":=":31,"expr2":32,"SELF":33,"\\\\":34,".":35,"optional_abstract":36,"SCHEMA":37,"END_SCHEMA":38,"CONSTANT":39,"constants":40,"END_CONSTANT":41,"TYPE":42,"type":43,"END_TYPE":44,"ENTITY":45,"entity_description":46,"optional_unique":47,"optional_where_rules":48,"END_ENTITY":49,"RULE":50,"END_RULE":51,"WHERE":52,"rules":53,"UNIQUE":54,"optional_OPTIONAL":55,"OPTIONAL":56,"basic_type":57,"LIST":58,"ARRAY":59,"entity_prop":60,"constant":61,"stuff":62,"string":63,"expr":64,"||":65,"'":66,"constant_b":67,",":68,"REAL":69,"INTEGER":70,"NUMBER":71,"STRING":72,"LOGICAL":73,"op":74,"<=":75,">=":76,"AND":77,"OR":78,"IN":79,"<*":80,"function":81,"EXISTS":82,"QUERY":83,"SIZEOF":84,"TYPEOF":85,"NVL":86,"USEDIN":87,"list_item":88,"list":89,"id2":90,"\\":91,"variable":92,"list_arguments":93,"<":94,">":95,"|":96,"<>":97,"*":98,"+":99,"-":100,"=":101,":<>:":102,":=:":103,"NOT":104,"[":105,"]":106,"rule":107,"?":108,"type_declaration":109,"ENUMERATION":110,"SELECT":111,"$accept":0,"$end":1},
 terminals_: {2:"error",5:"EOF",7:"BAG",8:"SET",10:"INVERSE",11:"identifier",12:":",14:"OF",15:"FOR",16:";",18:"ABSTRACT",19:"SUPERTYPE",20:"SUBTYPE",21:"(",23:")",24:"ONEOF",25:"ANDOR",27:"DERIVE",31:":=",33:"SELF",34:"\\\\",35:".",37:"SCHEMA",38:"END_SCHEMA",39:"CONSTANT",41:"END_CONSTANT",42:"TYPE",44:"END_TYPE",45:"ENTITY",49:"END_ENTITY",50:"RULE",51:"END_RULE",52:"WHERE",54:"UNIQUE",56:"OPTIONAL",58:"LIST",59:"ARRAY",65:"||",66:"'",68:",",69:"REAL",70:"INTEGER",71:"NUMBER",72:"STRING",73:"LOGICAL",75:"<=",76:">=",77:"AND",78:"OR",79:"IN",80:"<*",82:"EXISTS",83:"QUERY",84:"SIZEOF",85:"TYPEOF",86:"NVL",87:"USEDIN",91:"\\",94:"<",95:">",96:"|",97:"<>",98:"*",99:"+",100:"-",101:"=",102:":<>:",103:":=:",104:"NOT",105:"[",106:"]",108:"?",110:"ENUMERATION",111:"SELECT"},
 productions_: [0,[3,1],[3,2],[3,2],[6,1],[6,1],[9,0],[9,10],[17,2],[17,5],[17,8],[17,5],[17,8],[17,10],[17,13],[26,0],[26,2],[28,1],[28,2],[29,6],[29,8],[29,10],[36,0],[36,1],[36,2],[36,3],[4,3],[4,2],[4,4],[4,4],[4,11],[4,10],[4,10],[48,0],[48,2],[47,0],[47,5],[55,0],[55,1],[30,1],[30,1],[30,4],[30,5],[30,4],[30,4],[60,4],[60,5],[46,1],[46,2],[40,1],[40,2],[62,4],[62,3],[64,1],[64,3],[63,2],[67,4],[61,3],[22,1],[22,3],[22,3],[57,1],[57,1],[57,1],[57,1],[57,1],[74,1],[74,1],[74,1],[74,1],[74,1],[74,1],[81,1],[81,1],[81,1],[81,1],[81,1],[81,1],[88,5],[88,1],[89,1],[89,3],[90,1],[90,3],[90,3],[90,3],[90,1],[90,5],[90,6],[90,4],[90,3],[90,2],[92,1],[92,1],[92,5],[93,0],[93,1],[93,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,3],[32,1],[32,2],[32,4],[32,6],[32,4],[32,6],[32,1],[32,3],[32,4],[32,6],[32,3],[107,3],[53,2],[53,3],[13,5],[13,5],[13,5],[109,8],[109,7],[109,7],[109,7],[109,4],[109,4],[43,1],[43,3]],
 performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* action[1] */, $$ /* vstack */, _$ /* lstack */) {
@@ -82,29 +82,168 @@ performAction: function anonymous(yytext, yyleng, yylineno, yy, yystate /* actio
 
 var $0 = $$.length - 1;
 switch (yystate) {
+case 8:
+                       this.$ = {
+                           abstract: "ABSTRACT_SUPERTYPE",
+                       };
+                     
+break;
+case 9:
+                        list_id = $$[$0-1];
+                        this.$ = {
+                            abstract: "SUBTYPE_OF",
+                            list_id: list_id
+                        };
+                     
+break;
+case 10:
+                        list_id = $$[$0-2];
+                        this.$ = {
+                            abstract: "SUBTYPE_OF_ONEOF",
+                            list_id: list_id
+                        };
+                     
+break;
+case 11:
+                        list_id = $$[$0-1];
+                        this.$ = {
+                            abstract: "SUPERTYPE_OF",
+                            list_id: list_id
+                        };
+                     
+break;
+case 12:
+                        list_id = $$[$0-2];
+                        this.$ = {
+                            abstract: "SUBTYPE_OF_ONEOF",
+                            list_id: list_id
+                        };
+                     
+break;
+case 13:
+                        list_id = $$[$0-4];
+                        identifier = $$[$0-1];
+                        this.$ = {
+                            abstract: "SUBTYPE_OF_ONEOF_ANDOR",
+                            list_id: list_id,
+                            andor:   identifier
+                        };
+                     
+break;
+case 14:
+                        list_id = $$[$0-7];
+                        identifier_list_id = $$[$0-2];
+                        this.$ = {
+                            abstract: "SUBTYPE_OF_ONEOF_ANDOR_ONEOF",
+                            list_id: list_id,
+                            andor:   identifier_list_id
+                        };
+                     
+break;
+case 22:
+                        this.$ = null;
+                    
+break;
+case 23:
+                        this.$ = $$[$0];
+                     
+break;
+case 24:
+                        this.$ = [ $$[$0-1] , $$[$0] ];
+                     
+break;
+case 25:
+                        this.$ = [ $$[$0-2] , $$[$0-1] , $$[$0] ];
+                     
+break;
 case 26:
 
         
 break;
 case 30:
-                        // console.log(" ENTITY-A" , $$[$0-9]);
                         var name =  $$[$0-9];
-                        yy.grammar[name] = {
-                            type: "entity",
-                            entity: name,
-                            // props:  yy.props,
-                         };
+
+                        var abstract = $$[$0-8];
+
+                        options = {}
+                        options.description = $$[$0-6];
+                        if (abstract != null) {
+                            options.abstract = abstract;
+                        }
+
+                        yy.grammar.add_entity(name,options);
                 
 break;
 case 31:
                         // console.log(" ENTITY-B" , $$[$0-8]);
                         var name =  $$[$0-8] ;
-                        yy.grammar[name] = {
-                            type: "entity",
-                            entity: name,
-                            // props:  yy.props,
-                        };
+                        var abstract = $$[$0-7];
+                        options = {}
+                        if (abstract != null) {
+                            options.abstract = abstract;
+                        }
+                        yy.grammar.add_entity(name,options);
                 
+break;
+case 39:
+                        this.$ = $$[$0];
+                    
+break;
+case 40:
+                        this.$ = $$[$0];
+                    
+break;
+case 41:
+                        composite_type = $$[$0];
+                        this.$ = "LIST RANGE ..." + composite_type;
+                    
+break;
+case 42:
+                        composite_type = $$[$0];
+                        this.$ = "LIST RANGE OF UNIQUE ..." + composite_type;
+                    
+break;
+case 43:
+                        composite_type = $$[$0];
+                        this.$ = "SET RANGE OF  ..." + composite_type;
+                    
+break;
+case 44:
+                        composite_type = $$[$0];
+                        this.$ = "ARRAY RANGE OF  ..." + composite_type;
+                    
+break;
+case 45:
+
+                    identifier     = $$[$0-3];
+                    composite_type = $$[$0-1];
+                    this.$ = {
+                        identifier: identifier,
+                        composite_type: composite_type,
+                        optional: false
+                    }
+                  
+break;
+case 46:
+                        identifier     = $$[$0-4];
+                        composite_type = $$[$0-1];
+
+                        this.$ = {
+                            identifier: identifier,
+                            composite_type: composite_type,
+                            optional: true
+                        }
+                
+break;
+case 47:
+                        this.$ = [ $$[$0] ];
+
+                      
+break;
+case 48:
+                        this.$ = $$[$0];
+                        this.$.unshift($$[$0-1]);
+                      
 break;
 case 58:
                this.$ = [ $$[$0] ];
@@ -124,11 +263,8 @@ case 131:
 break;
 case 134:
                          var name = $$[$0-7];
-                         var list = $$[$0-2];
-                         yy.grammar[name] = {
-                            type: "enumeration",
-                            enum: $$[$0-2]
-                         };
+                         var values = $$[$0-2];
+                         yy.grammar.add_enumeration(name,values);
                      
 break;
 }
