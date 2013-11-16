@@ -93,7 +93,7 @@ describe("test parsing entity",function(){
                  grammar.entities.product_definition_formation_with_specified_source.type.should.equal("entity");
 
                  grammar.entities.should.have.property("surface_of_revolution");
-                 grammar.entities['surface_of_revolution'].type.should.equal("entity");
+                 grammar.entities.surface_of_revolution.type.should.equal("entity");
 
                  done();
 
@@ -147,7 +147,7 @@ describe("test parsing entity",function(){
             if (err) {
                 done(err);
             } else {
-                props =grammar.buildProp("product_definition_formation");
+                var props =grammar.buildProp("product_definition_formation");
                 // console.log(" props product_definition_formation = ",props);
                 props.should.eql([
                     { name:'id',          type:'S' , class: 'IDENTIFIER'},

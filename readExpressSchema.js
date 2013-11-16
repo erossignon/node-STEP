@@ -1,197 +1,218 @@
 var fs = require('fs');
-var assert =require('assert');
+var assert = require('assert');
 
 
-var Grammar = function() {
+var Grammar = function () {
 
-    this._elements={};
-    this._enumerations ={};
+    "use strict";
+
+    this._elements = {};
+
+    this._enumerations = {};
     this._entities = {};
     this._types = {};
     this._selects = {};
 
     var self = this;
-    Object.defineProperty(this,"enumerations",{
-        get: function() { return self._enumerations; },
-        set: function(value) {
-           throw new Error("cannot set enumeration")
+
+    Object.defineProperty(this, "enumerations", {
+        get: function () {
+            return self._enumerations;
+        },
+        set: function (/*value*/) {
+            throw new Error("cannot set enumeration");
         }
     });
-    Object.defineProperty(this,"entities",{
-        get: function() { return self._entities; },
-        set: function(value) {
-            throw new Error("cannot set entities")
+
+    Object.defineProperty(this, "entities", {
+        get: function () {
+            return self._entities;
+        },
+        set: function (/*value*/) {
+            throw new Error("cannot set entities");
         }
     });
 };
-Grammar.prototype.add_type = function(name,type) {
-    this._elements[name] = {
+
+Grammar.prototype.add_type = function (name, type) {
+
+    "use strict";
+
+    var item = {
         type: "type",
         name: name,
         type_type: type
     };
-    this._types[name] =this._elements[name];
+    this._types[name] = item;
+    this._elements[name] = item;
 
 };
-Grammar.prototype.add_select = function(name,values) {
+Grammar.prototype.add_select = function (name, values) {
 
-    var element = {
+    "use strict";
+
+    var item = {
         type: "select",
         name: name,
         list: values
     };
-    this._elements[name] = element;
-    this._selects[name] = element;
-
+    this._selects[name] = item;
+    this._elements[name] = item;
 };
 
-Grammar.prototype.add_enumeration = function(name,values) {
-    // console.log(" add_enumeration ",name,values);
-    this._elements[name] = {
+Grammar.prototype.add_enumeration = function (name, values) {
+
+    "use strict";
+
+    var item = {
         type: "enumeration",
         name: name,
         enum: values
     };
 
-    this._enumerations[name] =this._elements[name];
-
+    this._enumerations[name] = item;
+    this._elements[name] = item;
 };
-Grammar.prototype.add_entity = function(name,options) {
-    var entity = {
+
+Grammar.prototype.add_entity = function (name, options) {
+
+    "use strict";
+
+    var item = {
         type: "entity",
         name: name
     };
+
     if (options.hasOwnProperty('properties')) {
-        props = options.properties;
-        entity.properties = props;
+        item.properties = options.properties;
     }
+
     if (options.hasOwnProperty('abstract')) {
-        abstract = options.abstract;
-        entity.abstract = abstract;
+        item.abstract = options.abstract;
     }
-    //xx console.log(entity.name,"  ", JSON.stringify(entity,null," "))
 
-    this._elements[name] = entity;
-    this._entities[name] = entity;
-
+    this._elements[name] = item;
+    this._entities[name] = item;
 };
 
-//Grammar.prototype.buildParsingEngineElement = function(entityName) {
-//
-//    var props = buildProp(entityName);
-//    var tmp =require("readStep.js");
-//    tmp.registerEntityParser(entityName,"<unused>",props);
-//};
-Grammar.prototype.buildSelectList = function(selectName) {
 
-    selectName  = selectName.toLowerCase();
+Grammar.prototype.buildSelectList = function (selectName) {
 
-    var element = this._selects[selectName];
-    if ( element == null) {
-        console.log(" ERROR / buildSelectList : cannot find entity with name ",selectName);
+    "use strict";
+
+    selectName = selectName.toLowerCase();
+
+    var select_element = this._selects[selectName];
+
+    if (select_element === null) {
+        console.log(" ERROR / buildSelectList : cannot find entity with name ", selectName);
     }
-    assert(element.type == "select");
-    assert(element.hasOwnProperty("name"));
-    assert(element.hasOwnProperty("list"));
+
+    assert(select_element.type === "select");
+    assert(select_element.hasOwnProperty("name"));
+    assert(select_element.hasOwnProperty("list"));
 
     var l = [];
-    for(a in element) {
-        l.push(a.toUpperCase());
+    for (var a in select_element) {
+        if (select_element.hasOwnProperty(a)) {
+            l.push(a.toUpperCase());
+        }
     }
     return l;
 
 };
 
-Grammar.prototype.buildProp = function(entityName) {
+Grammar.prototype.buildProp = function (entityName) {
 
-    entityName  = entityName.toLowerCase();
+    "use strict";
 
     var self = this;
 
-    var e = this.entities[entityName];
-    if ( e == null) {
-        console.log(" ERROR / buildProp : cannot find entity with name ",entityName);
+    entityName = entityName.toLowerCase();
+
+    var entity = this.entities[entityName];
+    if (entity === null) {
+        console.log(" ERROR / buildProp : cannot find entity with name ", entityName);
     }
-    props = [];
+    var props = [];
 
     // build from SUBTYPE
-    if (e.abstract != null) {
-        //xx console.log('e=',e);
-        e.abstract.forEach(function(a){
-            if (a.abstract === "SUBTYPE_OF" ) {
-                a.list_id.forEach(function(b) {
-                    props_based =  self.buildProp(b);
-                    props.concat(props_based);
+    if ( entity.abstract !== undefined) {
+        // console.log('entity Name = ', entityName," => ",entity);
+        entity.abstract.forEach(function (a) {
+            if (a.abstract === "SUBTYPE_OF") {
+                a.list_id.forEach(function (superTypeName) {
+                    var props_based = self.buildProp(superTypeName);
+                    props = props.concat(props_based);
                 });
             }
         });
     }
-    var self = this;
     //
-
     function _get_class(composite_type) {
         if (typeof composite_type === "object") {
             return _get_class(composite_type.composite_type);
         }
         return composite_type.toUpperCase();
-
     }
+
     function _get_type(composite_type) {
 
         if (typeof composite_type === "object") {
             var r = _get_type(composite_type.composite_type);
-            // xx console.log("r=",r," composite_type=",composite_type);
-            assert(r.length == 1);
+            // console.log("r=",r," composite_type=",composite_type);
             if (composite_type.type === 'SET_RANGE_OF') {
-                return "[" + r + "]";
+                if (r.length === 1) {
+                    return "[" + r + "]";
+                } else {
+                    return r;
+                }
             }
             // xx console.log("composite_type=",composite_type);
             return "[" + r + "]";
             // assert(false);
         }
-        name = composite_type;
-        if (name in self._types) {
-            // console.log(" totot ",name)
-            return _get_type(self._types[name].type_type);
+        if (composite_type in self._types) {
+            return _get_type(self._types[composite_type].type_type);
         }
-        if (name in self._selects) {
+        if (composite_type in self._selects) {
             return "#";
         }
-        if (name in self.enumerations ) {
+        if (composite_type in self.enumerations) {
             return "@";
         }
-        if (name in self.entities ) {
+        if (composite_type in self.entities) {
             return "#";
         }
-        if (name === "REAL") {
+        if (composite_type === "REAL") {
             return "f";
         }
-        if (name === "INTEGER") {
+        if (composite_type === "INTEGER") {
             return "i";
         }
-        if (name === "NUMBER") {
+        if (composite_type === "NUMBER") {
             return "f";
         }
-        if (name === "STRING") {
+        if (composite_type === "STRING") {
             return "S";
         }
-        if (name === "LOGICAL") {
+        if (composite_type === "LOGICAL") {
             return "B";
         }
-        if (name === "BOOLEAN") {
+        if (composite_type === "BOOLEAN") {
             return "B";
         }
-        console.log(" ERRROR => p",name);
-        assert(false,"cannot find "+name + " in entities or enumerations");
+        console.log(" ERROR => p", composite_type);
+        assert(false, "cannot find " + composite_type + " in entities or enumerations");
+        return "?";
     }
-    //console.log(e);
 
-    e.properties.forEach(function(p){
-        props.push( {
-            name: p.identifier,
-            type: _get_type(p.composite_type),
-            class: _get_class(p.composite_type)
-        })
+    entity.properties.forEach(function (property) {
+        props.push({
+            name: property.identifier,
+            type: _get_type(property.composite_type),
+            class: _get_class(property.composite_type)
+        });
     });
 
     return props;
@@ -199,11 +220,9 @@ Grammar.prototype.buildProp = function(entityName) {
 
 
 
+function parseSchema(input, callback) {
 
-var express_parser = require("./express_parser")
-
-function parseSchema(input,callback) {
-
+    "use strict";
 
     var parser = require("./express_parser").parser;
 
@@ -211,19 +230,20 @@ function parseSchema(input,callback) {
 
     var success = parser.parse(input);
     // console.log(parser);
-    if (!success)  {
-        callback(new Error("Error !"),null)
+    if (!success) {
+        callback(new Error("Error !"), null);
     } else {
         //console.log(parser.yy.grammar);
-        callback(null,parser.yy.grammar);
+        callback(null, parser.yy.grammar);
     }
-
 }
 
-function readSchema(filename,callback) {
+function readSchema(filename, callback) {
 
-    var source  = fs.readFileSync(filename,"utf8");
-    parseSchema(source,callback);
+    "use strict";
+
+    var source = fs.readFileSync(filename, "utf8");
+    parseSchema(source, callback);
 
 }
 

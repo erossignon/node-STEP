@@ -5,10 +5,12 @@ var assert = require("assert");
 
 describe("test reading anchor.step", function () {
 
+    "use strict";
+
     var reader = new STEP.StepReader();
     before(function (done) {
         reader.read("parts/anchor.step", function (err) {
-            assert(err == null)
+            assert(err === null);
             done();
         });
     });
@@ -19,6 +21,7 @@ describe("test reading anchor.step", function () {
         // console.log(util.inspect(reader.getObjects("PRODUCT_DEFINITION")[0],{ colors: true, depth:10}));
         done();
     });
+
     it("should have 5 shape representations", function (done) {
 
         reader.getObjects("SHAPE_REPRESENTATION").should.have.length(5);
@@ -27,6 +30,7 @@ describe("test reading anchor.step", function () {
         // console.log(util.inspect(reader.getObjects("SHAPE_REPRESENTATION")[2],{ colors: true, depth:10}));
         done();
     });
+
     it("should have 9 shape definition representations", function (done) {
 
         var sdrs = reader.getObjects("SHAPE_DEFINITION_REPRESENTATION");
@@ -38,15 +42,20 @@ describe("test reading anchor.step", function () {
     });
 
 });
+
 describe(" read file 1797609in.stp ", function () {
+
+    "use strict";
+
     it(" should parse without error", function (done) {
+
         var reader = new STEP.StepReader();
         reader.read("./parts/1797609in.stp", function (err) {
             assert(!err);
             reader.dumpStatistics();
-            console.log(reader.getLine('1585'));
-            Object.keys(reader.indexer.lines).sort().forEach(function (k) {
-                // var e = reader.indexer.lines[k];
+            console.log(reader.getEntity('1585'));
+            Object.keys(reader.indexer.entries).sort().forEach(function (k) {
+                // var e = reader.indexer.entries[k];
                 // console.log( e._id , e.type,e.line);
             });
             console.log(" nbShapes = ", reader.getObjects("SHAPE_DEFINITION_REPRESENTATION").length);
@@ -57,9 +66,13 @@ describe(" read file 1797609in.stp ", function () {
 
 function testAndDump(filename) {
 
+    "use strict";
+
     describe("test large assembly : " + filename, function () {
+
         this.timeout(100000);
         var reader = new STEP.StepReader();
+
         before(function (done) {
             reader.read(/*"parts/Planetary Gearbox.stp"*/filename, function (err) {
                assert(!err);
@@ -86,7 +99,11 @@ var walk = require("walk");
 
 
 describe(" testing on all step files", function () {
+
+    "use strict";
+
     this.timeout(100000);
+
     it(" should parse files", function (done) {
         var nbError = 0;
         // console.log(fs.readdirSync("./parts"));
@@ -94,7 +111,7 @@ describe(" testing on all step files", function () {
         walker.on('file', function (root, stat, next) {
             var filename = root + "/" + stat.name;
             var ext = path.extname(filename);
-            if (ext != ".stp" && ext != ".step") {
+            if (ext !== ".stp" && ext !== ".step") {
                 next();
                 return;
             }
@@ -135,7 +152,8 @@ describe(" testing if a file is a STEP file ",function() {
                 done();
         });
 
-    })
+    });
+
     it("should return TRUE if the file is a STEP file",function(done){
 
 
@@ -149,5 +167,5 @@ describe(" testing if a file is a STEP file ",function() {
             done();
         });
 
-    })
-})
+    });
+});
