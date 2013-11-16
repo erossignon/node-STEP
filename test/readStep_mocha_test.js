@@ -44,9 +44,9 @@ describe(" read file 1797609in.stp ", function () {
         reader.read("./parts/1797609in.stp", function (err) {
             assert(!err);
             reader.dumpStatistics();
-            console.log(reader.getLine('1585'));
-            Object.keys(reader.indexer.lines).sort().forEach(function (k) {
-                // var e = reader.indexer.lines[k];
+            console.log(reader.getEntity('1585'));
+            Object.keys(reader.indexer.entries).sort().forEach(function (k) {
+                // var e = reader.indexer.entries[k];
                 // console.log( e._id , e.type,e.line);
             });
             console.log(" nbShapes = ", reader.getObjects("SHAPE_DEFINITION_REPRESENTATION").length);

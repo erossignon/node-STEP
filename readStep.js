@@ -4,42 +4,42 @@
  *
  *  Author : Etienne Rossignon ( etienne.rossignon@gadz.org )
  */
-var colors = require('colors');
+
+require('colors');
 var util = require("util");
 var assert = require('assert');
 var Table = require('easy-table');
 
 // http://www.steptools.com/support/stdev_docs/express/ap203/html/index.html
-waiting_file_type = 1;
-waiting_section   = 2; // HEADER; or DATA;
-in_header_section = 3;
-in_data_section   = 4;
-parsing_complete  = 5;
+var waiting_file_type = 1;
+var waiting_section = 2; // HEADER; or DATA;
+var in_header_section = 3;
+var in_data_section = 4;
+var parsing_complete = 5;
 
-var pattern_ISO_10303_21 = /ISO-10303-21;/  ;
+var pattern_ISO_10303_21 = /ISO-10303-21;/;
 var pattern_HEADER = /HEADER;/;
-var pattern_DATA   = /DATA;/;
+var pattern_DATA = /DATA;/;
 var pattern_ENDSEC = /ENDSEC;/;
 
-
+var verbose = false;
 /**
  *
  * @param callback
  * @constructor
  */
-var StepIndexer = function(callback) {
+var StepIndexer = function (callback) {
+
+    "use strict";
 
     this.lastLine = "";
-    this.lines = { };
+    this.entries = { };
     this.types = {};
     this.typesRev = {};
     this.callback = callback;
 
     // pattern for simple step line #123=TOTO(....)
     this.patternSimple = /^(\w+)\s*(\(.*\))\s*;/;
-
-    // pattern for complex line #123=(TOTO(...)TITI(...))
-    this.patternComplex = /(\w+)\*(\(.*\))\s*\w/g  ;
 
     this.startLinePattern = /\#([0-9]+)\s*=\s*(.*)/;  // something like # 123 = ...
 
@@ -56,6 +56,7 @@ var StepIndexer = function(callback) {
 util.inherits(StepIndexer, require("stream"));
 
 StepIndexer.prototype._getTypeIndex = function (strType) {
+    "use strict";
     var me = this;
     var typeIndex;
     if (me.types.hasOwnProperty(strType)) {
@@ -70,40 +71,54 @@ StepIndexer.prototype._getTypeIndex = function (strType) {
 };
 
 function trim(str) {
+    "use strict";
     return str.replace(/^\s+/g, '').replace(/\s+$/g, '');
 }
 
+
+/**
+ * _splitComplexLine processes a complex step line.
+ * of the form
+ *     IDENTIFIER(x,y,(x,y,e),y)IDENTIFIER2(1,2,#1232)....
+ *
+ * @param line
+ * @returns {Array}
+ * @private
+ */
 StepIndexer.prototype._splitComplexLine = function (line) {
+
+    "use strict";
+
     var me = this;
     var array = [];
-    // IDENTIFIER(x,y,(x,y,e),y)IDENTIFIER2....
     var i = 1;
     var n = line.length - 2;
     var s;
     while (i < n) {
         s = i;
+
         // skip identifier
-        while (line[i] != '(' && i < n) {
+        while (line[i] !== '(' && i < n) {
             i++;
-            if (i >= n) break;
+            if (i >= n) { break;}
         }
+
         var identifier = trim(line.substr(s, i - s));
 
-        // console.log( " &&&",identifier.yellow , " = ",i,n)
         // find balanced closing )
-        var parLevel = 1  ;
-        s = i ;
-        i++;
-        while ((line[i] != ')') || parLevel !== 1) {
-            if (line[i] == ')') parLevel--;
-            if (line[i] == '(') parLevel++;
+        var parLevel = 1;
+        s = i;
+        i+=1;
+
+        while ((line[i] !== ')') || parLevel !== 1) {
+            if (line[i] === ')')  { parLevel--;}
+            if (line[i] === '(')  { parLevel++;}
             i++;
-            if (i >= n) break;
+            if (i >= n) { break; }
         }
 
         var content = line.substr(s, i - s + 1);
         i++;
-        //xx console.log(identifier.yellow , " = ",content.bold.blue)
         if (identifier !== '') {
             var typeIndex = me._getTypeIndex(identifier);
             array.push({ type: typeIndex.key, args: content});
@@ -115,6 +130,7 @@ StepIndexer.prototype._splitComplexLine = function (line) {
 
 StepIndexer.prototype.write = function (data) {
 
+    "use strict";
 
     var me = this;
 
@@ -125,22 +141,22 @@ StepIndexer.prototype.write = function (data) {
 
     var lines = (this.lastLine + data.toString()).split(/\r\n|\n/);
 
-    this.lastLine = lines.splice(lines.length - 1)[0] ;
+    this.lastLine = lines.splice(lines.length - 1)[0];
 
-    var matches;
+    var matches,line_m,num,typeIndex,entry,type;
 
     lines.forEach(function (line /*, index, array*/) {
 
-        if (me.bad_STEP_file) {         return;  }
+        if (me.bad_STEP_file) {
+            return;
+        }
 
-
-        if(me.status == waiting_file_type) {
-            if(pattern_ISO_10303_21.test(line)) {
+        if (me.status === waiting_file_type) {
+            if (pattern_ISO_10303_21.test(line)) {
                 me.status = waiting_section;
                 return;
             } else {
                 me.bad_STEP_file = true;
-
                 // destroy the input stream
                 me.input.destroy();
                 return;
@@ -148,83 +164,95 @@ StepIndexer.prototype.write = function (data) {
 
         }
 
-        if(me.status == waiting_section) {
+        if (me.status === waiting_section) {
             if (pattern_HEADER.test(line)) {
                 me.status = in_header_section;
                 return;
-            }  else if (pattern_DATA.test(line)) {
+            } else if (pattern_DATA.test(line)) {
                 me.status = in_data_section;
                 return;
-            } else {
-                // console.log(" skipping ",line);
             }
-
         }
-        if (me.status == in_header_section) {
 
-            if (pattern_ENDSEC.test(line)){
+        if (me.status === in_header_section) {
+
+            if (pattern_ENDSEC.test(line)) {
                 me.status = waiting_section;
                 return;
             }
             me.header.push(line);
 
-        } else if (me.status == in_data_section) {
+        } else if (me.status === in_data_section) {
 
-            if (pattern_ENDSEC.test(line)){
+            if (pattern_ENDSEC.test(line)) {
                 me.status = parsing_complete;
                 return;
             }
 
             matches = me.startLinePattern.exec(line);
             if (matches) {
-                me.curNum  = matches[1];
+                me.curNum = matches[1];
                 me.curLine = matches[2];
             } else {
-                // console.log(" line = ",line,me.startLinePattern.exec(line));
                 me.curLine += line;
             }
-            //console.log(" =", me.curLine[me.curLine.length-1]);
             if (me.curLine[me.curLine.length - 1] === ';') {
 
                 matches = me.patternSimple.exec(me.curLine);
+
                 if (matches) {
-                    var num = me.curNum;
-                    var type = matches[1];
-                    //xx if (type == "PRODUCT_DEFINITION") {
-                    //xx    console.log("#".red, me.curNum, ' = ', me.curLine);
-                    //xx }
-                    var line = matches[2];
-                    var typeIndex = me._getTypeIndex(type);
-                    var entry = { _id: num, type: typeIndex.key, line: line};
-                    me.lines[num] = entry;
+                    // we have identify a simple form step line
+                    // example:
+                    //     #1234=EDGE_LOOP('',(#234));
+                    //
+                    num       = me.curNum;
+                    type      = matches[1];
+                    line_m    = matches[2];
+
+                    // keep track of this
+                    typeIndex = me._getTypeIndex(type);
                     typeIndex.array.push(num);
-                    // if ( type != "CARTESIAN_POINT" && type!="ORIENTED_EDGE" && type!="B_SPLINE_CURVE_WITH_KNOTS" && type!="DIRECTION" && type!="EDGE_CURVE") {
-                    //  console.log("type = ",type);
-                    //}
+                    assert(typeIndex.key === type);
+
+                    entry     = {
+                        _id: num,
+                        type: typeIndex.key,
+                        line: line_m
+                    };
+                    me.entries[num] = entry;
+
+
                 } else {
-                    // complex
-                    var num = me.curNum;
-                    var entry = { _id: num, types: me._splitComplexLine(me.curLine) };
-                    me.lines[num] = entry;
-                    // console.log("line=", me.curLine);
+                    // this is probably a complex form step line
+                    // example:
+                    // #1307=(NAMED_UNIT(*)SI_UNIT($,.STERADIAN.)SOLID_ANGLE_UNIT());
+                    //
+                    num       = me.curNum;
+                    entry     = {
+                        _id: num,
+                        types: me._splitComplexLine(me.curLine)
+                    };
+
+                    me.entries[num] = entry;
+
                     entry.types.forEach(function (element) {
                         var type = element.type;
                         var typeIndex = me._getTypeIndex(type);
                         typeIndex.array.push(num);
-                        // console.log(" type = ", type)
                     });
                 }
             }
         }
     });
-    // console.log(" DATA ");
-    // this..apply(this, arguments);
 };
 
 function buildRegExp(t) {
+
+    "use strict";
+
     var s = ".*\\(\\s*";
     // BOOLEAN
-    t = t.replace(/B/g, "\\s*(\\.T\\.|\\.F\\.|\\*|\\$)\\s*");
+    t = t.replace(/B/g, "\\s*(\\.T\\.|\\.F\\.|\\.U\\.|\\*|\\$)\\s*");
     // IDENTIFIER
     t = t.replace(/I/g, "('[^']*'|\\*|\\$)");
     // LABEL
@@ -239,7 +267,7 @@ function buildRegExp(t) {
     // ,
     t = t.replace(/,/g, "\\s*,\\s*");
     // SET of #
-    t = t.replace(/%/g, "\\(\\s*\([0-9\\s\\#\\,]+\)\\s*\\)");
+    t = t.replace(/%/g, "\\(\\s*([0-9\\s\\#\\,]+)\\s*\\)");
     // enum
     t = t.replace(/@/g, "\\s*\\.([A-Za-z_]+)\\.\\s*");
     s += t;
@@ -247,9 +275,10 @@ function buildRegExp(t) {
     return new RegExp(s);
 }
 
-parsers = {};
+var parsers = {};
 
 function buildSimplePattern(props) {
+    "use strict";
     var s = "";
     props.forEach(function (p) {
         s += "," + p.type;
@@ -261,19 +290,18 @@ function buildSimplePattern(props) {
 
 function constructParsingEngine(done) {
 
+    "use strict";
     assert(done);
 
     var SCHEMA = require("./readExpressSchema");
 
-    SCHEMA.readSchema("./specs/wg3n916_ap203.exp",function(err,grammar) {
-        if (err) {
-            done(err);
-        } else {
-            console.log(" entities" , grammar.entities);
+    SCHEMA.readSchema("./specs/wg3n916_ap203.exp", function (err, grammar) {
+        if (!err) {
+            console.log(" entities", grammar.entities);
 
             var keys = Object.keys(grammar.entities);
 
-            keys = [
+            var keys_ = [
                 "PRODUCT_DEFINITION_FORMATION",
                 "PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE",
                 "PRODUCT_DEFINITION_CONTEXT",
@@ -287,12 +315,9 @@ function constructParsingEngine(done) {
                 "REPRESENTATION_RELATIONSHIP",
                 "REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION",
                 "SHAPE_REPRESENTATION_RELATIONSHIP",
-                // "SHAPE_DEFINITION_RELATIONSHIP",
                 "PROPERTY_DEFINITION",
                 "SHAPE_DEFINITION_REPRESENTATION",
-                //"REPRESENTED_DEFINITION",
                 "PRODUCT_DEFINITION_SHAPE",
-                // "DEFINITION",
                 "PRODUCT_DEFINITION_USAGE",
                 "ASSEMBLY_COMPONENT_USAGE",
                 "NEXT_ASSEMBLY_USAGE_OCCURRENCE",
@@ -306,6 +331,9 @@ function constructParsingEngine(done) {
                 "ADVANCED_BREP_SHAPE_REPRESENTATION",
                 "FACETED_BREP_SHAPE_REPRESENTATION",
                 "GEOMETRIC_REPRESENTATION_ITEM",
+                "GEOMETRIC_REPRESENTATION_CONTEXT",
+                "GLOBAL_UNIT_ASSIGNED_CONTEXT",
+                "GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT",
                 "SOLID_MODEL",
                 "MANIFOLD_SOLID_BREP",
                 "BREP_WITH_VOIDS",
@@ -319,29 +347,27 @@ function constructParsingEngine(done) {
                 "EDGE_LOOP",
                 "SURFACE",
                 "SHAPE_ASPECT",
-                // "STYLED_ITEM",
-                // "PACKAGE",
                 "PRODUCT_DEFINITION_WITH_ASSOCIATED_DOCUMENTS",
                 "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION",
-                // "CSG_SHAPE_REPRESENTATION"
+                "TRIMMED_CURVE",
+                "DEFINITIONAL_REPRESENTATION",
+                "PARAMETRIC_REPRESENTATION_CONTEXT"
             ];
 
-            keys_select = [
-                "CHARACTERIZED_DEFINITION",
-                "CHARACTERIZED_PRODUCT_DEFINITION",
-                // "REPRESENTED_DEFINITION"
-            ];
 
-            keys.forEach(function(entityName) {
+            keys.forEach(function (entityName) {
 
                 entityName = entityName.toUpperCase();
                 var props = grammar.buildProp(entityName);
 
                 var simplePattern = buildSimplePattern(props);
 
-                console.log(" pattern for ",entityName," = ",simplePattern);
-                for ( p in props) {
-                    console.log( "    prop",props[p].type , props[p].name, props[p].class)
+                console.log(" pattern for ", entityName, " = ", simplePattern);
+
+                for (var p in props) {
+                    if (props.hasOwnProperty(p) ) {
+                        console.log("    prop", props[p].type, props[p].name, props[p].class);
+                    }
                 }
 
                 var pattern = buildRegExp(simplePattern);
@@ -350,14 +376,19 @@ function constructParsingEngine(done) {
                     type: "ENTITY",
                     pattern: pattern,
                     props: props,
-                    name: entityName,
-                    // subTypeOf: subTypeOf
-                }
+                    name: entityName
+                };
             });
 
-            keys_select.forEach(function(selectName) {
+            var keys_select = [
+                "CHARACTERIZED_DEFINITION",
+                "CHARACTERIZED_PRODUCT_DEFINITION"
+                // "REPRESENTED_DEFINITION"
+            ];
+            var keys_select = Object.keys(grammar._selects);
+            keys_select.forEach(function (selectName) {
                 selectName = selectName.toUpperCase();
-                list_select = grammar.buildSelectList(selectName);
+                var list_select = grammar.buildSelectList(selectName);
                 parsers[selectName] = {
                     type: "SELECT",
                     select: list_select
@@ -366,287 +397,21 @@ function constructParsingEngine(done) {
             });
 
             done();
+        } else {
+            done(err);
         }
     });
 }
 
-function constructParsingEngineOld(done) {
-
-
-    function registerEntityParser(entityName, subTypeOf, props) {
-
-        var simplePattern = buildSimplePattern(props);
-        var pattern = buildRegExp(simplePattern);
-        console.log(" pattern for ",entityName," = ",simplePattern);
-        for ( p in props) {
-            console.log( "    prop",props[p].type , props[p].name, props[p].class)
-        }
-        parsers[entityName] = {
-            type: "ENTITY",
-            pattern: pattern,
-            props: props,
-            name: entityName,
-            //xx subTypeOf: subTypeOf
-        }
-    }
-
-    function registerSelect(name, select) {
-        parsers[name] = {
-            type: "SELECT",
-            select: select
-        };
-        // console.log(" name = ",name, select);
-    }
-
-    function registerEnum() {
-
-    }
-
-    registerEnum('SOURCE', ["MADE", "BOUGHT", "NOT_KNOWN"]);
-
-    registerSelect("CHARACTERIZED_DEFINITION", ["CHARACTERIZED_PRODUCT_DEFINITION", "SHAPE_DEFINITION"]);
-    registerSelect("CHARACTERIZED_PRODUCT_DEFINITION", ["PRODUCT_DEFINITION", "PRODUCT_DEFINITION_RELATIONSHIP"]);
-    registerSelect("REPRESENTED_DEFINITION", ["PROPERTY_DEFINITION", "PROPERTY_DEFINITION_RELATIONSHIP", "SHAPE_ASPECT"]);
-
-    registerEntityParser('PRODUCT_DEFINITION', "",
-        [
-            {  name: 'id', type: 'S' },
-            {  name: 'description', type: 'S' },
-            {  name: 'formation', type: '#', class: 'PRODUCT_DEFINITION_FORMATION' },
-            {  name: 'frame_of_reference', type: '#', class: 'PRODUCT_DEFINITION_CONTEXT'  }
-        ]);
-    registerEntityParser('PRODUCT_DEFINITION_FORMATION', "",
-        [
-            {  name: 'id', type: 'S' },
-            {  name: 'description', type: 'S' },
-            {  name: 'of_product', type: '#', class: 'PRODUCT' }
-        ]);
-    registerEntityParser('PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE', 'PRODUCT_DEFINITION_FORMATION',
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'description', type: 'S' },
-            {  name: 'of_product', type: '#', class: 'PRODUCT' },
-            {  name: 'make_or_buy', type: '@', class: 'SOURCE' }
-        ]);
-    registerEntityParser('PRODUCT_DEFINITION_CONTEXT', "APPLICATION_CONTEXT_ELEMENT",
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'frame_of_reference', type: '#', class: 'APPLICATION_CONTEXT' },
-            {  name: 'life_cycle_stage', type: 'S' }
-        ]);
-    registerEntityParser('DESIGN_CONTEXT', 'PRODUCT_DEFINITION_CONTEXT',
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'frame_of_reference', type: '#', class: 'APPLICATION_CONTEXT' },
-            {  name: 'life_cycle_stage', type: 'S'  }
-        ]);
-    registerEntityParser('PRODUCT', "",
-        [
-            {  name: 'id', type: 'S' },
-            {  name: 'name', type: 'S' },
-            {  name: 'description', type: 'S' },
-            {  name: 'frame_of_reference', type: '[#]', class: 'PRODUCT_CONTEXT' }
-        ]);
-    registerEntityParser('PRODUCT_CONTEXT', 'APPLICATION_CONTEXT_ELEMENT',
-        [
-            { name: "name", type: 'S' },
-            { name: "frame_of_reference", type: '#', class: 'APPLICATION_CONTEXT'},
-            { name: "discipline_type", type: 'S' }
-        ]);
-    registerEntityParser('MECHANICAL_CONTEXT', 'PRODUCT_CONTEXT',
-        [
-            { name: "name", type: 'S' },
-            { name: "frame_of_reference", type: '#', class: 'APPLICATION_CONTEXT'},
-            { name: "discipline_type", type: 'S' }
-        ]);
-    registerEntityParser('APPLICATION_CONTEXT', "",
-        [
-            { name: 'application', type: 'S' }
-            // { name: 'context_elements'     , type:'[#]' APPLICATION_CONTEXT_ELEMENT
-        ]);
-
-    registerEntityParser('SHAPE_DEFINITION_REPRESENTATION', "PROPERTY_DEFINITION_REPRESENTATION",
-        [
-            { name: "definition", type: '#', class: "REPRESENTED_DEFINITION" },
-            { name: "used_representation", type: '#', class: "REPRESENTATION"  },
-        ]);
-    registerEntityParser('REPRESENTATION_RELATIONSHIP', '', [
-        {  name: "name", type: 'S'  },
-        {  name: "description", type: 'S'  },
-        {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
-        {  name: "rep_2", type: '#', class: "REPRESENTATION"  }
-    ]);
-    registerEntityParser('REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION', 'REPRESENTATION_RELATIONSHIP',
-        [
-            {  name: "name", type: 'S'  },
-            {  name: "description", type: 'S'  },
-            {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
-            {  name: "rep_2", type: '#', class: "REPRESENTATION"  },
-            {  name: "transformation_operator", type: '#', class: "TRANSFORMATION"  }
-        ]);
-    registerEntityParser('SHAPE_REPRESENTATION_RELATIONSHIP', 'REPRESENTATION_RELATIONSHIP',
-        [
-            {  name: "name", type: 'S'  },
-            {  name: "description", type: 'S'  },
-            {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
-            {  name: "rep_2", type: '#', class: "REPRESENTATION"  }
-        ]);
-//    registerEntityParser('SHAPE_DEFINITION_RELATIONSHIP', "REPRESENTATION_RELATIONSHIP",
-//        [
-//            {  name: "name", type: 'S'  },
-//            {  name: "description", type: 'S'  },
-//            {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
-//            {  name: "rep_2", type: '#', class: "REPRESENTATION"  }
-//        ]);
-    registerEntityParser('PROPERTY_DEFINITION', "",
-        [
-            { name: "name", type: 'S' },
-            { name: "description", type: 'S' },
-            { name: "definition", type: '#', class: "CHARACTERIZED_DEFINITION" }
-        ]);
-    registerEntityParser('PRODUCT_DEFINITION_SHAPE', "PROPERTY_DEFINITION",
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'description', type: 'S' },
-            {  name: 'definition', type: '#', class: "CHARACTERIZED_DEFINITION" }
-        ]);
-    // registerEntityParser("DEFINITION", "", []);
-    registerEntityParser("PRODUCT_DEFINITION_USAGE", "PRODUCT_DEFINITION_RELATIONSHIP",
-        [
-        ]);
-    registerEntityParser("ASSEMBLY_COMPONENT_USAGE", "PRODUCT_DEFINITION_USAGE",
-        [
-        ]);
-
-
-    registerEntityParser('NEXT_ASSEMBLY_USAGE_OCCURRENCE', "ASSEMBLY_COMPONENT_USAGE",
-        [
-            {  name: 'id', type: 'S' },
-            {  name: 'name', type: 'S' },
-            {  name: 'description', type: 'S' },
-            {  name: 'relating_product_definition', type: '#', class: 'PRODUCT_DEFINITION'},
-            {  name: 'related_product_definition', type: '#', class: 'PRODUCT_DEFINITION'},
-            {  name: 'reference_designator', type: 'S'}
-        ]);
-    registerEntityParser('MAPPED_ITEM', "REPRESENTATION_ITEM",
-        [
-            { name: 'name', type: 'S' },
-            { name: 'mapping_source', type: '#', class: "REPRESENTATION_MAP" },
-            { name: 'mapping_target', type: '#', class: "REPRESENTATION_ITEM" },
-        ]);
-    registerEntityParser('REPRESENTATION_MAP', '',
-        [
-            { name: 'mapping_origin', type: '#', class: 'REPRESENTATION_ITEM' },
-            { name: 'mapped_representation', type: '#', class: 'REPRESENTATION' },
-        ]);
-    registerEntityParser('AXIS2_PLACEMENT_3D', 'PLACEMENT',
-        [
-            { name: 'name', type: 'S' },
-            { name: 'location', type: '#', class: 'CARTESIAN_POINT' },
-            { name: 'axis', type: '#', class: 'DIRECTION' },
-            { name: 'ref_direction', type: '#', class: 'DIRECTION' }
-        ]);
-    registerEntityParser('REPRESENTATION_ITEM', '', []);
-    registerEntityParser('REPRESENTATION_CONTEXT', '',
-        [
-            { name: 'context_identifier', type: 'S' },
-            { name: 'context_type', type: 'S' },
-        ]
-        ,
-        [
-            // inverse : representation_in_context : SET [1:?] of representation for context_of_items
-            { name: 'representations_in_context', type: '[#]', class: 'REPRESENTATION', for: "context_of_items" }
-        ]
-    );
-    registerEntityParser('REPRESENTATION', '',
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
-            {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
-        ]);
-    registerEntityParser('SHAPE_REPRESENTATION', 'REPRESENTATION',
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
-            {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
-        ]);
-    registerEntityParser('ADVANCED_BREP_SHAPE_REPRESENTATION', 'SHAPE_REPRESENTATION',
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
-            {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
-        ]);
-    registerEntityParser('FACETED_BREP_SHAPE_REPRESENTATION', 'SHAPE_REPRESENTATION',
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
-            {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
-        ]);
-
-
-    registerEntityParser('GEOMETRIC_REPRESENTATION_ITEM', 'REPRESENTATION_ITEM', []);
-    registerEntityParser('SOLID_MODEL', 'GEOMETRIC_REPRESENTATION_ITEM', []);
-
-    registerEntityParser('MANIFOLD_SOLID_BREP', "SOLID_MODEL",
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'outer', type: '#', class: "CLOSED_SHELL" },
-        ]);
-
-    registerEntityParser('BREP_WITH_VOIDS', 'MANIFOLD_SOLID_BREP', [
-    ]);
-    registerEntityParser('FACETED_BREP', 'MANIFOLD_SOLID_BREP', [
-    ]);
-    registerEntityParser("_CLOSED_SHELL", "CONNECTED_FACE_SET",
-        [
-            {  name: 'name', type: 'S' },
-            {  name: 'cfs_faces', type: '[#]', class: "FACE" },
-        ]);
-    registerEntityParser("TOPOLOGICAL_REPRESENTATION_ITEM", "REPRESENTATION_ITEM", []);
-    registerEntityParser("FACE", "TOPOLOGICAL_REPRESENTATION_ITEM",
-        [
-            { name: 'name', type: 'S' },
-            { name: 'bounds', type: '[#]', class: "FACE_BOUND" },
-        ]);
-    registerEntityParser("ADVANCED_FACE", "FACE_SURFACE",
-        [
-            { name: 'name', type: 'S' },
-            { name: 'bounds', type: '[#]', class: "FACE_BOUND" },
-            { name: 'face_geometry', type: '#', class: 'SURFACE' },
-            { name: 'same_sense', type: 'B' }
-        ]);
-    registerEntityParser("FACE_BOUND", "TOPOLOGICAL_REPRESENTATION_ITEM",
-        [
-            { name: 'name', type: 'S' },
-            { name: 'bound', type: '#', class: "LOOP" },
-            { name: 'orientation', type: 'B' },
-        ]);
-    registerEntityParser("FACE_OUTER_BOUND", "FACE_BOUND", []);
-    registerEntityParser("LOOP", "TOPOLOGICAL_REPRESENTATION_ITEM", [ ]);
-    registerEntityParser("EDGE_LOOP", "TOPOLOGICAL_REPRESENTATION_ITEM",
-        [
-            { name: 'name', type: 'S' },
-            { name: 'edge_list', type: '[#]', class: "ORIENTED_EDGE" },
-        ]);
-    registerEntityParser("SURFACE", "GEOMETRIC_REPRESENTATION_ITEM", []);
-    registerEntityParser("SHAPE_ASPECT", "", []);
-    registerEntityParser("STYLED_ITEM", "", []);
-    registerEntityParser("PACKAGE", "", []);
-    registerEntityParser("PRODUCT_DEFINITION_WITH_ASSOCIATED_DOCUMENTS", "", []);
-    registerEntityParser("GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION", "", []);
-    registerEntityParser("CSG_SHAPE_REPRESENTATION", "", []);
-
-
-    done();
-}
-
 var init_done = false;
-function performInitialisation(done)   {
+function performInitialisation(done) {
+
+    "use strict";
 
     if (init_done) {
         done();
     } else {
-        constructParsingEngine(function() {
+        constructParsingEngine(function () {
             init_done = true;
             // process.exit();
             done();
@@ -655,30 +420,45 @@ function performInitialisation(done)   {
 }
 
 StepIndexer.prototype.parse = function (entity, parser) {
+
+    "use strict";
+
     var me = this;
 
-    var obj = {} ;
+    var obj = {};
     obj._id = entity._id;
 
     if (entity.object) {
-        // console.log( "######################################################### already processed ," , entity._id);
         return entity.object;
     }
+
     if (!parser) {
+
         if (entity.type) {
 
+            //  this is a simple type
             var type = me.typesRev[entity.type];
             parser = parsers[type];
             if (!parser) {
                 console.log(" Error !!! cannot get parser for ".red, entity.type, " in ".red, type, entity);
             }
+
             me._parseType(obj, entity.line, parser);
             // console.log("type ", type,parser);
+
+
         } else {
+            // this is a complex type
+
             assert(entity.types instanceof Array);
+
+            // let parse each segment
             entity.types.forEach(function (el) {
+
                 var type = me.typesRev[el.type];
+
                 parser = parsers[type];
+
                 if (!parser) {
                     console.log(" Error !!! cannot get parser for ".yellow, type, " in ".yellow, entity);
                 } else {
@@ -690,6 +470,8 @@ StepIndexer.prototype.parse = function (entity, parser) {
         me._parseType(obj, entity.line, parser);
     }
 
+    // mark the entity as being parsed by caching the resulting object and clearing the original line
+    // which is no more required.
     entity.object = obj;
     entity.line = null;
 
@@ -697,144 +479,112 @@ StepIndexer.prototype.parse = function (entity, parser) {
 };
 
 StepIndexer.prototype._parseType = function (obj, entity_line, parser) {
-    // xx console.log("#", obj._id, "  parsing ".cyan,parser.pattern, ' on line ', entity_line);
+
+    "use strict";
+    if (!parser) {
+        console.log(" missing parser".red.bold);
+        return {};
+    }
+    if (verbose) {
+        console.log(parser.name," #", obj._id, "  parsing ".cyan,parser.pattern, ' on line ', entity_line);
+    }
     var me = this;
     var matches = parser.pattern.exec(entity_line);
+
     if (!matches) {
         console.log("#", obj._id, parser.name, " cannot parse ".red, parser.pattern, ' on line ', entity_line);
         return {};
     }
-    if (matches.length - 1 != parser.props.length) {
+    if (matches.length - 1 !== parser.props.length) {
         console.log(" warning : not enough element found in ".green);
-        console.log(" parsing ", ((parser.pattern) + "").red) ;
+        console.log(" parsing ", ((parser.pattern) + "").red);
         console.log(" on line ", entity_line.cyan);
         console.log(matches);
     }
 
-    if (!obj._class) {
-        obj._class = parser.name;
-    } else {
-        if (obj instanceof Array) {
-        } else {
+    if (obj._class) {
+        if ( ! obj instanceof Array) {
             var tmp = obj._class;
             obj._class = [ tmp ];
         }
         obj._class.push(parser.name);
+    } else {
+        obj._class = parser.name;
     }
 
+
+    function resolove_entity_id(entity_id) {
+        var entity = me.entries[entity_id];
+        if (entity === null) {
+            return entity_id;
+        }
+        return me.parse(entity,null);
+    }
 
     for (var i = 0; i < matches.length - 1; i++) {
-        var p = parser.props[i];
+
+        var property = parser.props[i];
+
         var value = matches[i + 1];
-        if (p.type === '[#]') {
 
-            var set = [];
-            var r = /#([0-9]+),{0,1}/g ;
-            var m ;
-            while (m = r.exec(value)) {
-                set.push(m[1]);
+        if (property.type === '[#]') {
+
+            // parse the array of ids
+
+            var array_of_ids = [];
+            var r = /#([0-9]+),{0,1}/g;
+
+            var m;
+            while ( (m = r.exec(value)) !== null ) {
+                array_of_ids.push(m[1]);
             }
-
-            // console.log(' ------- SET = ', set.slice(0,10), "...");
-            // console.log(' -------------------------------------',p.name,p.type," value = ",value);
-            // console.log(p.name,p.type," value = ",value);
-            value = set;
+            value = array_of_ids;
         }
-        obj[p.name] = value;
-        if (p.class && parsers[p.class]) {
-            var baseType = p.class;
 
-            function process(v) {
-                var subline = me.lines[v];
-                if (!subline) {
-                    console.log(" ERROR !".red, "cannot fine line #", v);
-                    throw new Error("Cannot find line");
-                }
-                if (!subline.hasOwnProperty('type')) {
-                    //console.log(" ERROR !".red, subline)
-                    // throw new Error("  line has no type");
-                    return;
-                }
-                var subtype = me.typesRev[subline.type];
-                // console.log("v=",v,subline);
-                // console.log("subtype =", subtype);
-                if (parsers[subtype]) {
-                    return  me.parse(subline, parsers[subtype]);
+        // add a property to the object with the specified value
+        obj[property.name] = value;
+
+        // if the property is a pointer to an other entity
+        // or a array of pointer, let recursively
+        // resolve ids to objects
+        if (property.class ) {
+
+            if (parsers[property.class]) {
+                // a parser exists,
+                if (value instanceof Array) {
+                    obj[property.name] = value.map(resolove_entity_id) ;
                 } else {
-                    console.log(" Undefined parser for type ", subtype);
-                    return v;
+                    obj[property.name] = resolove_entity_id(value);
                 }
-            }
-
-            if (value instanceof Array) {
-                obj[p.name] = value.map(function (v) {
-                    return process(v);
-                });
             } else {
-                obj[p.name] = process(value);
+                if ( ! property.class in ["LABEL","TEXT","IDENTIFIER"])  {
+                    console.log(" No parser to resolve property ".yellow,property.name ,
+                        "#",value, " into ".yellow, property.class);
+
+                }
             }
         }
     }
-    // console.log(JSON.stringify(entity));
     return obj;
 };
 
 
 StepIndexer.prototype.end = function (data) {
-    assert(data == undefined);
+
+    "use strict";
+
+    assert(data === undefined);
     // console.log(" END with ", data);
     var me = this;
-    if (me.status != parsing_complete) {
+    if (me.status !== parsing_complete) {
         me.bad_STEP_file = true;
         me.callback(new Error("Invalid step file"));
-    }  else {
+    } else {
         me.callback();
     }
-    return;
-//// this.write(data);
-//    var sdrs = me.types['SHAPE_DEFINITION_REPRESENTATION'].array;
-//
-//    console.log(sdrs);
-//    sdrs.forEach(function (num) {
-//        var sdr = me.parse(me.lines[num]);
-//        console.log(util.inspect(me.lines[num], {depth: 9, colors: true}));
-//    });
-//
-//    console.log(me.types['PRODUCT_DEFINITION']);
-//    var product_definitions = me.types['PRODUCT_DEFINITION'].array;
-//    product_definitions.forEach(function (num) {
-//        var product_definition = me.parse(me.lines[num], parsers['PRODUCT_DEFINITION']);
-//        console.log(util.inspect(me.lines[num], {depth: 9, colors: true}));
-//    });
-//    me.callback();
-//    return;
-//
-//    var breps1 = me.types['MANIFOLD_SOLID_BREP'];
-//    var breps2 = me.types['BREP_WITH_VOIDS'];
-//    console.log(" BREP_WITH_VOIDS = ", breps1);
-//    breps1.array.forEach(function (num) {
-//        var tt = me.typesRev[me.lines[num].type];
-//        console.log(tt);
-//        var brep = me.parse(me.lines[num], parsers[tt]);
-//        console.log(util.inspect(me.lines[num], {depth: 8, colors: true}));
-//    });
-
-
 };
 
 var fs = require("fs");
-
-/*
-function readStep(filename, callback) {
-
-    performInitialisation(function()  {
-        var indexer = new StepIndexer(callback);
-        indexer.input = fs.createReadStream(filename);
-        indexer.input.pipe(indexer);
-
-    });
-}
-*/
 
 /**
  * return true if the file is a correct STEP file
@@ -845,19 +595,22 @@ function readStep(filename, callback) {
  * @param filename
  * @param callback
  */
-function check_STEP_file(filename,callback) {
+function check_STEP_file(filename, callback) {
+
+    "use strict";
+
     // "ISO-10303-21;"
     // "HEADER;"
-    var stream = fs.createReadStream(filename,"r");
+    var stream = fs.createReadStream(filename, "r");
 
     var fileData = "";
-    stream.on('data', function(data){
+    stream.on('data', function (data) {
         fileData += data;
 
         // The next lines should be improved
         var lines = fileData.split("\n");
 
-        if(lines.length >= 2){
+        if (lines.length >= 2) {
 
             stream.destroy();
             if (!pattern_ISO_10303_21.test(lines[0])) {
@@ -867,49 +620,55 @@ function check_STEP_file(filename,callback) {
             }
         }
     });
-    stream.on('error', function(){
+    stream.on('error', function () {
         my_callback('Error', null);
     });
 
-    stream.on('end', function(){
+    stream.on('end', function () {
         my_callback('File end reached without finding line', null);
     });
 
     var callback_called = false;
-    function my_callback(err,data) {
+
+    function my_callback(err, data) {
         if (!callback_called) {
-            callback_called= true;
-            callback(err,data);
+            callback_called = true;
+            callback(err, data);
         }
     }
 }
 function StepReader() {
+    "use strict";
 }
 
 StepReader.prototype.getObjects = function (className) {
-    //return this.indexer.getType[
+
+    "use strict";
+
     var me = this.indexer;
     if (!me.types.hasOwnProperty(className)) {
         return [];
     }
-    var arr = me.types[className].array.map(function (num) {
+    return me.types[className].array.map(function (num) {
         //console.log(num);
-        return me.parse(me.lines[num]);
+        return me.parse(me.entries[num]);
     });
-    return arr;
 };
 
-StepReader.prototype.getLine = function (lineNumber) {
+StepReader.prototype.getEntity = function (id) {
+
+    "use strict";
+
     var me = this.indexer;
-    return me.lines["" + lineNumber];
+    return me.entries["" + id];
 };
 
 StepReader.prototype.dumpStatistics = function () {
 
+    "use strict";
 
     var table = new Table({
-        head: ['TH 1 label', 'TH 2 label']
-        , colWidths: [100, 200]
+        head: ['TH 1 label', 'TH 2 label'], colWidths: [100, 200]
     });
 
 
@@ -924,7 +683,7 @@ StepReader.prototype.dumpStatistics = function () {
         table.newRow();
         // console.log(" type", k, );
     });
-    table.sort(['Count','Type']);
+    table.sort(['Count', 'Type']);
     console.log(table.toString());
 
 
@@ -932,14 +691,20 @@ StepReader.prototype.dumpStatistics = function () {
 };
 
 StepReader.prototype.read = function (filename, callback) {
+
+    "use strict";
+
     var me = this;
 
-    performInitialisation(function() {
+    performInitialisation(function () {
         me.filename = filename;
         me.input = fs.createReadStream(filename);
         me.indexer = new StepIndexer(function (err) {
 
-            if (err) { callback(err); return;}
+            if (err) {
+                callback(err);
+                return;
+            }
             callback(null, me);
         });
         me.indexer.input = me.input;
@@ -950,19 +715,16 @@ StepReader.prototype.read = function (filename, callback) {
 
 };
 
-// var s = readStep("parts/anchor.step",function callback() {
-//	console.log(" Done");
-//});
-
 
 /**
- * find all nauo (Next Assembly Usage Occurence's) related to a given product definiton
+ * find all nauo (Next Assembly Usage Occurence's) related to a given product definition
  *
- * @param reader
  * @param product_definition_id
  * @returns {Array}  of product_definition
  */
-StepReader.prototype.find_nauo_relating_to = function(product_definition_id) {
+StepReader.prototype.find_nauo_relating_to = function (product_definition_id) {
+
+    "use strict";
 
     var reader = this;
 
@@ -980,9 +742,10 @@ StepReader.prototype.find_nauo_relating_to = function(product_definition_id) {
 };
 
 
-
-
 function bindShapeRelationship(reader) {
+
+    "use strict";
+
     // search for SHAPE_REPRESENTATION_RELATIONSHIP and create links
     var srrs = reader.getObjects("SHAPE_REPRESENTATION_RELATIONSHIP");
 
@@ -993,60 +756,68 @@ function bindShapeRelationship(reader) {
 }
 
 
+function dumpRecursiveNAUOS(reader, pd, level, node) {
 
-function dumpRecursiveNAUOS(reader,pd, level,node) {
+    "use strict";
 
     var sub_parts = reader.find_nauo_relating_to(pd);
-    if (sub_parts.length == 0) return;
+    if (sub_parts.length === 0) { return;}
 
-    var sub_node = {label: "nauos", nodes:[]};
+    var sub_node = {label: "nauos", nodes: []};
     node.nodes.push(sub_node);
 
     sub_parts.forEach(function (rpd) {
         //xx console.log("                   ".substr(0, level * 2) + "  name      =", rpd._id, rpd.formation.of_product.name.yellow.bold);
-        sub_node.nodes.push({label: "" + rpd._id+" "+rpd.formation.of_product.name.yellow.bold});
-        dumpRecursiveNAUOS(reader,rpd, level + 1,sub_node);
+        sub_node.nodes.push({label: "" + rpd._id + " " + rpd.formation.of_product.name.yellow.bold});
+        dumpRecursiveNAUOS(reader, rpd, level + 1, sub_node);
     });
 }
 
-function dumpABSR(absr,node) {
+function dumpABSR(absr, node) {
+
+    "use strict";
 
     var items = absr.items;
     items.forEach(function (item) {
 
         var sub_node = {
             label: item._id + " " + item._class.red,
-            nodes:[]
-        }
+            nodes: []
+        };
         node.nodes.push(sub_node);
         // console.log(" ------------------------=> ", item._id, item._class);
     });
 }
 
+
 var archy = require('archy');
 StepReader.prototype.dumpAssemblies = function () {
+
+    "use strict";
 
     var reader = this;
 
     var root = {
-            label: "assembly",
-            nodes: []
-        };
+        label: "assembly",
+        nodes: []
+    };
 
     bindShapeRelationship(reader);
 
     var sdrs = reader.getObjects("SHAPE_DEFINITION_REPRESENTATION");
     var srrs = reader.getObjects("SHAPE_REPRESENTATION_RELATIONSHIP");
+
     fs.writeFile("toto.out", JSON.stringify({ sdrs: sdrs, srrs: srrs}, null, " "));// util.inspect(sdrs,{depth: 30}));
+
     sdrs.forEach(function (sdr) {
 
         var node = {
-            label: sdr._id + " SDR:".yellow + sdr.definition.name ,
+            label: sdr._id + " SDR:".yellow + sdr.definition.name,
             nodes: []
         };
         var ur_node = {
-            label : "used_representation = "+sdr.used_representation._id + " "+ sdr.used_representation._class.white ,
-            nodes:[]
+            label: "used_representation = " + sdr.used_representation._id + " " + sdr.used_representation._class.white,
+            nodes: []
         };
 
         node.nodes.push(ur_node);
@@ -1068,7 +839,7 @@ StepReader.prototype.dumpAssemblies = function () {
             node.nodes.push(sub_node);
 
             var pd = sdr.definition.definition;
-            dumpRecursiveNAUOS(reader,pd, 1,sub_node);
+            dumpRecursiveNAUOS(reader, pd, 1, sub_node);
             //xx var sub_parts = reader.find_nauo_relating_to(pd);
             //xx if  (sub_parts.length > 0 ) thrownew Error("TTT");
 
@@ -1083,38 +854,38 @@ StepReader.prototype.dumpAssemblies = function () {
             // console.log(util.inspect(sdr.used_representation ,{ colors:true}));
             var items = sdr.used_representation.items;
 
-            items.forEach(function (item) {
 
+            items.forEach(function (item) {
+                var node;
                 if (item._class === 'MAPPED_ITEM') {
                     var mr = item.mapping_source.mapped_representation;
                     //xx console.log(" -------------------> ", mr._id, mr._class);
-                    var n= {label : "MAPPED_ITEM:" + mr._id + " " +  mr._class.yellow, nodes:[]};
-                    ur_node.nodes.push(n);
-                    dumpABSR(mr,n);
+                    node = {label: "MAPPED_ITEM:" + mr._id + " " + mr._class.yellow, nodes: []};
+                    ur_node.nodes.push(node);
+                    dumpABSR(mr, node);
                 } else if (item._class === "AXIS2_PLACEMENT_3D") {
-                    var n= {label : item._id + " " +  item._class.yellow};
-                    ur_node.nodes.push(n);
+                    node = {label: item._id + " " + item._class.yellow};
+                    ur_node.nodes.push(node);
                     // xx console.log(" -------------------> ", item._id, item._class);
                 } else {
-                    var n= {label : "???:" + item._id + " " +  item._class.yellow};
-                    ur_node.nodes.push(n);
+                    node = {label: "???:" + item._id + " " + item._class.yellow};
+                    ur_node.nodes.push(node);
                     console.log(" ?????-------------------> ", item._id, item._class);
                 }
             });
 
         } else if (sdr.used_representation._class === "ADVANCED_BREP_SHAPE_REPRESENTATION") {
 
-            dumpABSR(sdr.used_representation,ur_node);
+            dumpABSR(sdr.used_representation, ur_node);
 
         } else {
-            ur_node.nodes.push({label: "ERROR : ".red +sdr.used_representation });
+            ur_node.nodes.push({label: "ERROR : ".red + sdr.used_representation });
             console.log(" ERROR : !!! ".red, sdr.used_representation);
         }
     });
 
     console.log(archy(root));
-}
-
+};
 
 
 
