@@ -184,7 +184,7 @@ optional_abstract : /* nothing */
                     }
                   | abstract_el
                      {
-                        $$ = $1;
+                        $$ = [ $1 ];
                      }
                   | abstract_el abstract_el
                      {
@@ -268,22 +268,34 @@ composite_type : basic_type
                | LIST  range OF composite_type
                     {
                         composite_type = $4;
-                        $$ = "LIST RANGE ..." + composite_type;
+                        $$ = {
+                           type: "LIST_RANGE_OF",
+                           composite_type: composite_type
+                        };
                     }
                | LIST  range OF UNIQUE composite_type
                     {
                         composite_type = $5;
-                        $$ = "LIST RANGE OF UNIQUE ..." + composite_type;
+                        $$ = {
+                           type: "LIST_RANGE_OF_UNIQUE",
+                           composite_type: composite_type
+                        };
                     }
-               | SET   range OF composite_type
+               | SET  range OF composite_type
                     {
                         composite_type = $4;
-                        $$ = "SET RANGE OF  ..." + composite_type;
+                        $$ = {
+                           type: "SET_RANGE_OF",
+                           composite_type: composite_type
+                        };
                     }
                | ARRAY range OF composite_type
                     {
                         composite_type = $4;
-                        $$ = "ARRAY RANGE OF  ..." + composite_type;
+                        $$ = {
+                           type: "ARRAY_RANGE_OF",
+                           composite_type: composite_type
+                        };
                     }
                ;
 
@@ -453,8 +465,24 @@ type_declaration :   identifier "=" ENUMERATION OF '(' list_id ')' ';'
                  |   identifier "=" LIST range OF  identifier  ';'
                  |   identifier "=" SET  range OF  identifier  ';'
                  |   identifier "=" SELECT '(' list_id ')' ';'
+                     {
+                        var name = $1;
+                        var values = $5;
+                        yy.grammar.add_select(name,values);
+                     }
                  |   identifier "=" basic_type ';'
+                     {
+                         var name = $1;
+                         var type = $3;
+                         yy.grammar.add_type(name,type);
+                     }
                  |   identifier "=" identifier ';'
+                     {
+                         var name = $1;
+                         var type = $3;
+                         yy.grammar.add_type(name,type);
+
+                     }
                  ;
 type : type_declaration
      | type_declaration WHERE rules

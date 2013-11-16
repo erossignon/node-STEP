@@ -145,7 +145,7 @@ case 22:
                     
 break;
 case 23:
-                        this.$ = $$[$0];
+                        this.$ = [ $$[$0] ];
                      
 break;
 case 24:
@@ -166,11 +166,10 @@ case 30:
                         var abstract = $$[$0-8];
 
                         options = {}
-                        options.description = $$[$0-6];
+                        options.properties = $$[$0-6];
                         if (abstract != null) {
                             options.abstract = abstract;
                         }
-
                         yy.grammar.add_entity(name,options);
                 
 break;
@@ -179,6 +178,7 @@ case 31:
                         var name =  $$[$0-8] ;
                         var abstract = $$[$0-7];
                         options = {}
+                        options.properties = [];
                         if (abstract != null) {
                             options.abstract = abstract;
                         }
@@ -195,22 +195,34 @@ case 40:
 break;
 case 41:
                         composite_type = $$[$0];
-                        this.$ = "LIST RANGE ..." + composite_type;
+                        this.$ = {
+                           type: "LIST_RANGE_OF",
+                           composite_type: composite_type
+                        };
                     
 break;
 case 42:
                         composite_type = $$[$0];
-                        this.$ = "LIST RANGE OF UNIQUE ..." + composite_type;
+                        this.$ = {
+                           type: "LIST_RANGE_OF_UNIQUE",
+                           composite_type: composite_type
+                        };
                     
 break;
 case 43:
                         composite_type = $$[$0];
-                        this.$ = "SET RANGE OF  ..." + composite_type;
+                        this.$ = {
+                           type: "SET_RANGE_OF",
+                           composite_type: composite_type
+                        };
                     
 break;
 case 44:
                         composite_type = $$[$0];
-                        this.$ = "ARRAY RANGE OF  ..." + composite_type;
+                        this.$ = {
+                           type: "ARRAY_RANGE_OF",
+                           composite_type: composite_type
+                        };
                     
 break;
 case 45:
@@ -265,6 +277,25 @@ case 134:
                          var name = $$[$0-7];
                          var values = $$[$0-2];
                          yy.grammar.add_enumeration(name,values);
+                     
+break;
+case 137:
+                        var name = $$[$0-6];
+                        var values = $$[$0-2];
+                        yy.grammar.add_select(name,values);
+                     
+break;
+case 138:
+                         var name = $$[$0-3];
+                         var type = $$[$0-1];
+                         yy.grammar.add_type(name,type);
+                     
+break;
+case 139:
+                         var name = $$[$0-3];
+                         var type = $$[$0-1];
+                         yy.grammar.add_type(name,type);
+
                      
 break;
 }

@@ -233,7 +233,7 @@ function buildRegExp(t) {
     t = t.replace(/S/g, "('[^']*'|\\*|\\$)");
     // Set of #
     t = t.replace(/\[#\]/g, "%");
-    // ENTITY (#123]
+    // ENTITY (#123)
     t = t.replace(/#/g, "#([0-9]+)");
     t = t.replace(/E/g, "#([0-9]+)");
     // ,
@@ -254,295 +254,405 @@ function buildSimplePattern(props) {
     props.forEach(function (p) {
         s += "," + p.type;
     });
+    // remove first ','
     return s.slice(1);
 }
 
-function registerEntityParser(name, subTypeOf, props) {
 
-    var simplePattern = buildSimplePattern(props);
-    var pattern = buildRegExp(simplePattern);
-    // console.log(" name = ",name, simplePattern);
-    parsers[name] = {
-        type: "ENTITY",
-        pattern: pattern,
-        props: props,
-        name: name,
-        subTypeOf: subTypeOf
+function constructParsingEngine(done) {
+
+    assert(done);
+
+    var SCHEMA = require("./readExpressSchema");
+
+    SCHEMA.readSchema("./specs/wg3n916_ap203.exp",function(err,grammar) {
+        if (err) {
+            done(err);
+        } else {
+            console.log(" entities" , grammar.entities);
+
+            var keys = Object.keys(grammar.entities);
+
+            keys = [
+                "PRODUCT_DEFINITION_FORMATION",
+                "PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE",
+                "PRODUCT_DEFINITION_CONTEXT",
+                "PRODUCT_DEFINITION",
+                "DESIGN_CONTEXT",
+                "PRODUCT",
+                "PRODUCT_CONTEXT",
+                "MECHANICAL_CONTEXT",
+                "APPLICATION_CONTEXT",
+                "SHAPE_DEFINITION_REPRESENTATION",
+                "REPRESENTATION_RELATIONSHIP",
+                "REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION",
+                "SHAPE_REPRESENTATION_RELATIONSHIP",
+                // "SHAPE_DEFINITION_RELATIONSHIP",
+                "PROPERTY_DEFINITION",
+                "SHAPE_DEFINITION_REPRESENTATION",
+                //"REPRESENTED_DEFINITION",
+                "PRODUCT_DEFINITION_SHAPE",
+                // "DEFINITION",
+                "PRODUCT_DEFINITION_USAGE",
+                "ASSEMBLY_COMPONENT_USAGE",
+                "NEXT_ASSEMBLY_USAGE_OCCURRENCE",
+                "MAPPED_ITEM",
+                "REPRESENTATION_MAP",
+                "AXIS2_PLACEMENT_3D",
+                "REPRESENTATION_ITEM",
+                "REPRESENTATION_CONTEXT",
+                "REPRESENTATION",
+                "SHAPE_REPRESENTATION",
+                "ADVANCED_BREP_SHAPE_REPRESENTATION",
+                "FACETED_BREP_SHAPE_REPRESENTATION",
+                "GEOMETRIC_REPRESENTATION_ITEM",
+                "SOLID_MODEL",
+                "MANIFOLD_SOLID_BREP",
+                "BREP_WITH_VOIDS",
+                "FACETED_BREP",
+                "TOPOLOGICAL_REPRESENTATION_ITEM",
+                "FACE",
+                "ADVANCED_FACE",
+                "FACE_BOUND",
+                "FACE_OUTER_BOUND",
+                "LOOP",
+                "EDGE_LOOP",
+                "SURFACE",
+                "SHAPE_ASPECT",
+                // "STYLED_ITEM",
+                // "PACKAGE",
+                "PRODUCT_DEFINITION_WITH_ASSOCIATED_DOCUMENTS",
+                "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION",
+                // "CSG_SHAPE_REPRESENTATION"
+            ];
+
+            keys_select = [
+                "CHARACTERIZED_DEFINITION",
+                "CHARACTERIZED_PRODUCT_DEFINITION",
+                // "REPRESENTED_DEFINITION"
+            ];
+
+            keys.forEach(function(entityName) {
+
+                entityName = entityName.toUpperCase();
+                var props = grammar.buildProp(entityName);
+
+                var simplePattern = buildSimplePattern(props);
+
+                console.log(" pattern for ",entityName," = ",simplePattern);
+                for ( p in props) {
+                    console.log( "    prop",props[p].type , props[p].name, props[p].class)
+                }
+
+                var pattern = buildRegExp(simplePattern);
+                // console.log(" name = ",name, simplePattern);
+                parsers[entityName] = {
+                    type: "ENTITY",
+                    pattern: pattern,
+                    props: props,
+                    name: entityName,
+                    // subTypeOf: subTypeOf
+                }
+            });
+
+            keys_select.forEach(function(selectName) {
+                selectName = selectName.toUpperCase();
+                list_select = grammar.buildSelectList(selectName);
+                parsers[selectName] = {
+                    type: "SELECT",
+                    select: list_select
+                };
+
+            });
+
+            done();
+        }
+    });
+}
+
+function constructParsingEngineOld(done) {
+
+
+    function registerEntityParser(entityName, subTypeOf, props) {
+
+        var simplePattern = buildSimplePattern(props);
+        var pattern = buildRegExp(simplePattern);
+        console.log(" pattern for ",entityName," = ",simplePattern);
+        for ( p in props) {
+            console.log( "    prop",props[p].type , props[p].name, props[p].class)
+        }
+        parsers[entityName] = {
+            type: "ENTITY",
+            pattern: pattern,
+            props: props,
+            name: entityName,
+            //xx subTypeOf: subTypeOf
+        }
+    }
+
+    function registerSelect(name, select) {
+        parsers[name] = {
+            type: "SELECT",
+            select: select
+        };
+        // console.log(" name = ",name, select);
+    }
+
+    function registerEnum() {
+
+    }
+
+    registerEnum('SOURCE', ["MADE", "BOUGHT", "NOT_KNOWN"]);
+
+    registerSelect("CHARACTERIZED_DEFINITION", ["CHARACTERIZED_PRODUCT_DEFINITION", "SHAPE_DEFINITION"]);
+    registerSelect("CHARACTERIZED_PRODUCT_DEFINITION", ["PRODUCT_DEFINITION", "PRODUCT_DEFINITION_RELATIONSHIP"]);
+    registerSelect("REPRESENTED_DEFINITION", ["PROPERTY_DEFINITION", "PROPERTY_DEFINITION_RELATIONSHIP", "SHAPE_ASPECT"]);
+
+    registerEntityParser('PRODUCT_DEFINITION', "",
+        [
+            {  name: 'id', type: 'S' },
+            {  name: 'description', type: 'S' },
+            {  name: 'formation', type: '#', class: 'PRODUCT_DEFINITION_FORMATION' },
+            {  name: 'frame_of_reference', type: '#', class: 'PRODUCT_DEFINITION_CONTEXT'  }
+        ]);
+    registerEntityParser('PRODUCT_DEFINITION_FORMATION', "",
+        [
+            {  name: 'id', type: 'S' },
+            {  name: 'description', type: 'S' },
+            {  name: 'of_product', type: '#', class: 'PRODUCT' }
+        ]);
+    registerEntityParser('PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE', 'PRODUCT_DEFINITION_FORMATION',
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'description', type: 'S' },
+            {  name: 'of_product', type: '#', class: 'PRODUCT' },
+            {  name: 'make_or_buy', type: '@', class: 'SOURCE' }
+        ]);
+    registerEntityParser('PRODUCT_DEFINITION_CONTEXT', "APPLICATION_CONTEXT_ELEMENT",
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'frame_of_reference', type: '#', class: 'APPLICATION_CONTEXT' },
+            {  name: 'life_cycle_stage', type: 'S' }
+        ]);
+    registerEntityParser('DESIGN_CONTEXT', 'PRODUCT_DEFINITION_CONTEXT',
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'frame_of_reference', type: '#', class: 'APPLICATION_CONTEXT' },
+            {  name: 'life_cycle_stage', type: 'S'  }
+        ]);
+    registerEntityParser('PRODUCT', "",
+        [
+            {  name: 'id', type: 'S' },
+            {  name: 'name', type: 'S' },
+            {  name: 'description', type: 'S' },
+            {  name: 'frame_of_reference', type: '[#]', class: 'PRODUCT_CONTEXT' }
+        ]);
+    registerEntityParser('PRODUCT_CONTEXT', 'APPLICATION_CONTEXT_ELEMENT',
+        [
+            { name: "name", type: 'S' },
+            { name: "frame_of_reference", type: '#', class: 'APPLICATION_CONTEXT'},
+            { name: "discipline_type", type: 'S' }
+        ]);
+    registerEntityParser('MECHANICAL_CONTEXT', 'PRODUCT_CONTEXT',
+        [
+            { name: "name", type: 'S' },
+            { name: "frame_of_reference", type: '#', class: 'APPLICATION_CONTEXT'},
+            { name: "discipline_type", type: 'S' }
+        ]);
+    registerEntityParser('APPLICATION_CONTEXT', "",
+        [
+            { name: 'application', type: 'S' }
+            // { name: 'context_elements'     , type:'[#]' APPLICATION_CONTEXT_ELEMENT
+        ]);
+
+    registerEntityParser('SHAPE_DEFINITION_REPRESENTATION', "PROPERTY_DEFINITION_REPRESENTATION",
+        [
+            { name: "definition", type: '#', class: "REPRESENTED_DEFINITION" },
+            { name: "used_representation", type: '#', class: "REPRESENTATION"  },
+        ]);
+    registerEntityParser('REPRESENTATION_RELATIONSHIP', '', [
+        {  name: "name", type: 'S'  },
+        {  name: "description", type: 'S'  },
+        {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
+        {  name: "rep_2", type: '#', class: "REPRESENTATION"  }
+    ]);
+    registerEntityParser('REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION', 'REPRESENTATION_RELATIONSHIP',
+        [
+            {  name: "name", type: 'S'  },
+            {  name: "description", type: 'S'  },
+            {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
+            {  name: "rep_2", type: '#', class: "REPRESENTATION"  },
+            {  name: "transformation_operator", type: '#', class: "TRANSFORMATION"  }
+        ]);
+    registerEntityParser('SHAPE_REPRESENTATION_RELATIONSHIP', 'REPRESENTATION_RELATIONSHIP',
+        [
+            {  name: "name", type: 'S'  },
+            {  name: "description", type: 'S'  },
+            {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
+            {  name: "rep_2", type: '#', class: "REPRESENTATION"  }
+        ]);
+//    registerEntityParser('SHAPE_DEFINITION_RELATIONSHIP', "REPRESENTATION_RELATIONSHIP",
+//        [
+//            {  name: "name", type: 'S'  },
+//            {  name: "description", type: 'S'  },
+//            {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
+//            {  name: "rep_2", type: '#', class: "REPRESENTATION"  }
+//        ]);
+    registerEntityParser('PROPERTY_DEFINITION', "",
+        [
+            { name: "name", type: 'S' },
+            { name: "description", type: 'S' },
+            { name: "definition", type: '#', class: "CHARACTERIZED_DEFINITION" }
+        ]);
+    registerEntityParser('PRODUCT_DEFINITION_SHAPE', "PROPERTY_DEFINITION",
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'description', type: 'S' },
+            {  name: 'definition', type: '#', class: "CHARACTERIZED_DEFINITION" }
+        ]);
+    // registerEntityParser("DEFINITION", "", []);
+    registerEntityParser("PRODUCT_DEFINITION_USAGE", "PRODUCT_DEFINITION_RELATIONSHIP",
+        [
+        ]);
+    registerEntityParser("ASSEMBLY_COMPONENT_USAGE", "PRODUCT_DEFINITION_USAGE",
+        [
+        ]);
+
+
+    registerEntityParser('NEXT_ASSEMBLY_USAGE_OCCURRENCE', "ASSEMBLY_COMPONENT_USAGE",
+        [
+            {  name: 'id', type: 'S' },
+            {  name: 'name', type: 'S' },
+            {  name: 'description', type: 'S' },
+            {  name: 'relating_product_definition', type: '#', class: 'PRODUCT_DEFINITION'},
+            {  name: 'related_product_definition', type: '#', class: 'PRODUCT_DEFINITION'},
+            {  name: 'reference_designator', type: 'S'}
+        ]);
+    registerEntityParser('MAPPED_ITEM', "REPRESENTATION_ITEM",
+        [
+            { name: 'name', type: 'S' },
+            { name: 'mapping_source', type: '#', class: "REPRESENTATION_MAP" },
+            { name: 'mapping_target', type: '#', class: "REPRESENTATION_ITEM" },
+        ]);
+    registerEntityParser('REPRESENTATION_MAP', '',
+        [
+            { name: 'mapping_origin', type: '#', class: 'REPRESENTATION_ITEM' },
+            { name: 'mapped_representation', type: '#', class: 'REPRESENTATION' },
+        ]);
+    registerEntityParser('AXIS2_PLACEMENT_3D', 'PLACEMENT',
+        [
+            { name: 'name', type: 'S' },
+            { name: 'location', type: '#', class: 'CARTESIAN_POINT' },
+            { name: 'axis', type: '#', class: 'DIRECTION' },
+            { name: 'ref_direction', type: '#', class: 'DIRECTION' }
+        ]);
+    registerEntityParser('REPRESENTATION_ITEM', '', []);
+    registerEntityParser('REPRESENTATION_CONTEXT', '',
+        [
+            { name: 'context_identifier', type: 'S' },
+            { name: 'context_type', type: 'S' },
+        ]
+        ,
+        [
+            // inverse : representation_in_context : SET [1:?] of representation for context_of_items
+            { name: 'representations_in_context', type: '[#]', class: 'REPRESENTATION', for: "context_of_items" }
+        ]
+    );
+    registerEntityParser('REPRESENTATION', '',
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
+            {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
+        ]);
+    registerEntityParser('SHAPE_REPRESENTATION', 'REPRESENTATION',
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
+            {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
+        ]);
+    registerEntityParser('ADVANCED_BREP_SHAPE_REPRESENTATION', 'SHAPE_REPRESENTATION',
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
+            {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
+        ]);
+    registerEntityParser('FACETED_BREP_SHAPE_REPRESENTATION', 'SHAPE_REPRESENTATION',
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
+            {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
+        ]);
+
+
+    registerEntityParser('GEOMETRIC_REPRESENTATION_ITEM', 'REPRESENTATION_ITEM', []);
+    registerEntityParser('SOLID_MODEL', 'GEOMETRIC_REPRESENTATION_ITEM', []);
+
+    registerEntityParser('MANIFOLD_SOLID_BREP', "SOLID_MODEL",
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'outer', type: '#', class: "CLOSED_SHELL" },
+        ]);
+
+    registerEntityParser('BREP_WITH_VOIDS', 'MANIFOLD_SOLID_BREP', [
+    ]);
+    registerEntityParser('FACETED_BREP', 'MANIFOLD_SOLID_BREP', [
+    ]);
+    registerEntityParser("_CLOSED_SHELL", "CONNECTED_FACE_SET",
+        [
+            {  name: 'name', type: 'S' },
+            {  name: 'cfs_faces', type: '[#]', class: "FACE" },
+        ]);
+    registerEntityParser("TOPOLOGICAL_REPRESENTATION_ITEM", "REPRESENTATION_ITEM", []);
+    registerEntityParser("FACE", "TOPOLOGICAL_REPRESENTATION_ITEM",
+        [
+            { name: 'name', type: 'S' },
+            { name: 'bounds', type: '[#]', class: "FACE_BOUND" },
+        ]);
+    registerEntityParser("ADVANCED_FACE", "FACE_SURFACE",
+        [
+            { name: 'name', type: 'S' },
+            { name: 'bounds', type: '[#]', class: "FACE_BOUND" },
+            { name: 'face_geometry', type: '#', class: 'SURFACE' },
+            { name: 'same_sense', type: 'B' }
+        ]);
+    registerEntityParser("FACE_BOUND", "TOPOLOGICAL_REPRESENTATION_ITEM",
+        [
+            { name: 'name', type: 'S' },
+            { name: 'bound', type: '#', class: "LOOP" },
+            { name: 'orientation', type: 'B' },
+        ]);
+    registerEntityParser("FACE_OUTER_BOUND", "FACE_BOUND", []);
+    registerEntityParser("LOOP", "TOPOLOGICAL_REPRESENTATION_ITEM", [ ]);
+    registerEntityParser("EDGE_LOOP", "TOPOLOGICAL_REPRESENTATION_ITEM",
+        [
+            { name: 'name', type: 'S' },
+            { name: 'edge_list', type: '[#]', class: "ORIENTED_EDGE" },
+        ]);
+    registerEntityParser("SURFACE", "GEOMETRIC_REPRESENTATION_ITEM", []);
+    registerEntityParser("SHAPE_ASPECT", "", []);
+    registerEntityParser("STYLED_ITEM", "", []);
+    registerEntityParser("PACKAGE", "", []);
+    registerEntityParser("PRODUCT_DEFINITION_WITH_ASSOCIATED_DOCUMENTS", "", []);
+    registerEntityParser("GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION", "", []);
+    registerEntityParser("CSG_SHAPE_REPRESENTATION", "", []);
+
+
+    done();
+}
+
+var init_done = false;
+function performInitialisation(done)   {
+
+    if (init_done) {
+        done();
+    } else {
+        constructParsingEngine(function() {
+            init_done = true;
+            // process.exit();
+            done();
+        });
     }
 }
-
-function registerSelect(name, select) {
-    parsers[name] = {
-        type: "SELECT",
-        select: select
-    };
-    // console.log(" name = ",name, select);
-}
-registerEntityParser('PRODUCT_DEFINITION', "",
-    [
-        {  name: 'id',          type: 'I' },
-        {  name: 'description', type: 'S' },
-        {  name: 'formation',    type: 'E', class: 'PRODUCT_DEFINITION_FORMATION' },
-        {  name: 'frame_of_reference', type: 'E', class: 'PRODUCT_DEFINITION_CONTEXT'  }
-    ]);
-registerEntityParser('PRODUCT_DEFINITION_FORMATION', "",
-    [
-        {  name: 'id', type: 'I' },
-        {  name: 'description', type: 'S' },
-        {  name: 'of_product', type: '#', class: 'PRODUCT' }
-    ]);
-
-registerEntityParser('PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE', 'PRODUCT_DEFINITION_FORMATION',
-    [
-        {  name: 'name', type: 'S' },
-        {  name: 'description', type: 'S' },
-        {  name: 'of_product', type: '#', class: 'PRODUCT' },
-        {  name: 'make_or_buy', type: '@', class: 'SOURCE' }
-    ]);
-
-function registerEnum() {
-
-}
-
-registerEnum('SOURCE', ["MADE", "BOUGHT", "NOT_KNOWN"]);
-
-registerEntityParser('PRODUCT_DEFINITION_CONTEXT', "APPLICATION_CONTEXT_ELEMENT",
-    [
-        {  name: 'name', type: 'S' },
-        {  name: 'frame_of_reference', type: 'E', class: 'APPLICATION_CONTEXT' },
-        {  name: 'life_cycle_stage', type: 'S' }
-    ]);
-registerEntityParser('DESIGN_CONTEXT', 'PRODUCT_DEFINITION_CONTEXT',
-    [
-        {  name: 'name', type: 'S' },
-        {  name: 'frame_of_reference', type: 'E', class: 'APPLICATION_CONTEXT' },
-        {  name: 'life_cycle_stage', type: 'L'  }
-    ]);
-registerEntityParser('PRODUCT', "",
-    [
-        {  name: 'id', type: 'I' },
-        {  name: 'name', type: 'L' },
-        {  name: 'description', type: 'S' },
-        {  name: 'frame_of_reference', type: '[#]', class: 'PRODUCT_CONTEXT' }
-    ]);
-registerEntityParser('PRODUCT_CONTEXT', 'APPLICATION_CONTEXT_ELEMENT',
-    [
-        { name: "name", type: 'L' },
-        { name: "frame_of_reference", type: '#', class: 'APPLICATION_CONTEXT'},
-        { name: "discipline_type", type: 'L' }
-    ]);
-registerEntityParser('MECHANICAL_CONTEXT', 'PRODUCT_CONTEXT',
-    [
-        { name: "name", type: 'L' },
-        { name: "frame_of_reference", type: '#', class: 'APPLICATION_CONTEXT'},
-        { name: "discipline_type", type: 'L' }
-    ]);
-
-registerEntityParser('APPLICATION_CONTEXT', "",
-    [
-        { name: 'application', type: 'S' }
-        // { name: 'context_elements'     , type:'[#]' APPLICATION_CONTEXT_ELEMENT
-    ]);
-
-registerEntityParser('SHAPE_DEFINITION_REPRESENTATION', "PROPERTY_DEFINITION_REPRESENTATION",
-    [
-        { name: "definition", type: '#', class: "REPRESENTED_DEFINITION" },
-        { name: "used_representation", type: '#', class: "REPRESENTATION"  },
-
-    ]);
-
-registerEntityParser('REPRESENTATION_RELATIONSHIP', '', [
-    {  name: "name", type: 'L'  },
-    {  name: "description", type: 'S'  },
-    {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
-    {  name: "rep_2", type: '#', class: "REPRESENTATION"  }
-]);
-registerEntityParser('REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION', 'REPRESENTATION_RELATIONSHIP',
-    [
-        {  name: "name", type: 'L'  },
-        {  name: "description", type: 'S'  },
-        {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
-        {  name: "rep_2", type: '#', class: "REPRESENTATION"  },
-        {  name: "transformation_operator", type: '#', class: "TRANSFORMATION"  }
-
-    ]);
-registerEntityParser('SHAPE_REPRESENTATION_RELATIONSHIP', 'REPRESENTATION_RELATIONSHIP',
-    [
-        {  name: "name", type: 'L'  },
-        {  name: "description", type: 'S'  },
-        {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
-        {  name: "rep_2", type: '#', class: "REPRESENTATION"  }
-
-    ]);
-
-registerEntityParser('SHAPE_DEFINITION_RELATIONSHIP', "REPRESENTATION_RELATIONSHIP",
-    [
-        {  name: "name", type: 'L'  },
-        {  name: "description", type: 'S'  },
-        {  name: "rep_1", type: '#', class: "REPRESENTATION"  },
-        {  name: "rep_2", type: '#', class: "REPRESENTATION"  }
-    ]);
-
-registerSelect("REPRESENTED_DEFINITION", ["PROPERTY_DEFINITION", "PROPERTY_DEFINITION_RELATIONSHIP", "SHAPE_ASPECT"]);
-
-registerEntityParser('PROPERTY_DEFINITION', "",
-    [
-        { name: "name", type: 'S' },
-        { name: "description", type: 'S' },
-        { name: "definition", type: '#', class: "CHARACTERIZED_DEFINITION" }
-    ]);
-registerSelect("CHARACTERIZED_DEFINITION", ["CHARACTERIZED_PRODUCT_DEFINITION", "SHAPE_DEFINITION"]);
-registerSelect("CHARACTERIZED_PRODUCT_DEFINITION", ["PRODUCT_DEFINITION", "PRODUCT_DEFINITION_RELATIONSHIP"]);
-
-registerEntityParser('PRODUCT_DEFINITION_SHAPE', "PROPERTY_DEFINITION",
-    [
-        {  name: 'name', type: 'L' },
-        {  name: 'description', type: 'S' },
-        {  name: 'definition', type: '#', class: "CHARACTERIZED_DEFINITION" }
-    ]);
-
-registerEntityParser("DEFINITION", "", []);
-
-registerEntityParser("PRODUCT_DEFINITION_USAGE", "PRODUCT_DEFINITION_RELATIONSHIP",
-    [
-    ]);
-registerEntityParser("ASSEMBLY_COMPONENT_USAGE", "PRODUCT_DEFINITION_USAGE",
-    [
-    ]);
-
-registerEntityParser('NEXT_ASSEMBLY_USAGE_OCCURRENCE', "ASSEMBLY_COMPONENT_USAGE",
-    [
-        {  name: 'id', type: 'I' },
-        {  name: 'name', type: 'L' },
-        {  name: 'description', type: 'S' },
-        {  name: 'relating_product_definition', type: '#', class: 'PRODUCT_DEFINITION'},
-        {  name: 'related_product_definition', type: '#', class: 'PRODUCT_DEFINITION'},
-        {  name: 'reference_designator', type: 'S'}
-
-    ]);
-registerEntityParser('MAPPED_ITEM', "REPRESENTATION_ITEM",
-    [
-        { name: 'name', type: 'L' },
-        { name: 'mapping_source', type: '#', class: "REPRESENTATION_MAP" },
-        { name: 'mapping_target', type: '#', class: "REPRESENTATION_ITEM" },
-
-    ]);
-registerEntityParser('REPRESENTATION_MAP', '',
-    [
-        { name: 'mapping_origin', type: '#', class: 'REPRESENTATION_ITEM' },
-        { name: 'mapped_representation', type: '#', class: 'REPRESENTATION' },
-
-    ]);
-registerEntityParser('AXIS2_PLACEMENT_3D', 'PLACEMENT',
-    [
-        { name: 'name', type: 'L' },
-        { name: 'location', type: '#', class: 'CARTESIAN_POINT' },
-        { name: 'axis', type: '#', class: 'DIRECTION' },
-        { name: 'ref_direction', type: '#', class: 'DIRECTION' }
-    ]);
-registerEntityParser('REPRESENTATION_ITEM', '', []);
-registerEntityParser('REPRESENTATION_CONTEXT', '',
-    [
-        { name: 'context_identifier', type: 'I' },
-        { name: 'context_type', type: 'S' },
-    ]
-    ,
-    [
-        // inverse : representation_in_context : SET [1:?] of representation for context_of_items
-        { name: 'representations_in_context', type: '[#]', class: 'REPRESENTATION', for: "context_of_items" }
-    ]
-);
-registerEntityParser('REPRESENTATION', '',
-    [
-        {  name: 'name', type: 'L' },
-        {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
-        {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
-    ]);
-
-registerEntityParser('SHAPE_REPRESENTATION', 'REPRESENTATION',
-    [
-
-        {  name: 'name', type: 'L' },
-        {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
-        {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
-    ]);
-
-registerEntityParser('ADVANCED_BREP_SHAPE_REPRESENTATION', 'SHAPE_REPRESENTATION',
-    [
-
-        {  name: 'name', type: 'L' },
-        {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
-        {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
-    ]);
-
-registerEntityParser('FACETED_BREP_SHAPE_REPRESENTATION', 'SHAPE_REPRESENTATION',
-    [
-        {  name: 'name', type: 'L' },
-        {  name: 'items', type: '[#]', class: 'REPRESENTATION_ITEM' },
-        {  name: 'context_of_items', type: '#', class: 'REPRESENTATION_CONTEXT'}
-    ]);
-
-
-registerEntityParser('GEOMETRIC_REPRESENTATION_ITEM', 'REPRESENTATION_ITEM', []);
-registerEntityParser('SOLID_MODEL', 'GEOMETRIC_REPRESENTATION_ITEM', []);
-
-registerEntityParser('MANIFOLD_SOLID_BREP', "SOLID_MODEL",
-    [
-        {  name: 'name', type: 'S' },
-        {  name: 'outer', type: 'E', class: "CLOSED_SHELL" },
-    ]);
-
-registerEntityParser('BREP_WITH_VOIDS', 'MANIFOLD_SOLID_BREP', [
-]);
-registerEntityParser('FACETED_BREP', 'MANIFOLD_SOLID_BREP', [
-]);
-registerEntityParser("_CLOSED_SHELL", "CONNECTED_FACE_SET",
-    [
-        {  name: 'name', type: 'S' },
-        {  name: 'cfs_faces', type: '[#]', class: "FACE" },
-    ]);
-
-registerEntityParser("REPRESENTATION_ITEM", "", []);
-
-registerEntityParser("TOPOLOGICAL_REPRESENTATION_ITEM", "REPRESENTATION_ITEM", []);
-
-registerEntityParser("FACE", "TOPOLOGICAL_REPRESENTATION_ITEM",
-    [
-        { name: 'name', type: 'S' },
-        { name: 'bounds', type: '[#]', class: "FACE_BOUND" },
-    ]);
-registerEntityParser("ADVANCED_FACE", "FACE_SURFACE",
-    [
-        { name: 'name', type: 'S' },
-        { name: 'bounds', type: '[#]', class: "FACE_BOUND" },
-        { name: 'face_geometry', type: '#', class: 'SURFACE' },
-        { name: 'same_sense', type: 'B' }
-    ]);
-
-
-registerEntityParser("FACE_BOUND", "TOPOLOGICAL_REPRESENTATION_ITEM",
-    [
-        { name: 'name', type: 'S' },
-        { name: 'bound', type: '#', class: "LOOP" },
-        { name: 'orientation', type: 'B' },
-    ]);
-registerEntityParser("FACE_OUTER_BOUND", "FACE_BOUND", []);
-
-registerEntityParser("LOOP", "TOPOLOGICAL_REPRESENTATION_ITEM", [ ]);
-registerEntityParser("EDGE_LOOP", "TOPOLOGICAL_REPRESENTATION_ITEM",
-    [
-        { name: 'name', type: 'S' },
-        { name: 'edge_list', type: '[#]', class: "ORIENTED_EDGE" },
-    ]);
-
-registerEntityParser("SURFACE", "GEOMETRIC_REPRESENTATION_ITEM", []);
-
-registerEntityParser("SHAPE_ASPECT", "", []);
-registerEntityParser("STYLED_ITEM", "", []);
-registerEntityParser("PACKAGE", "", []);
-registerEntityParser("PRODUCT_DEFINITION_WITH_ASSOCIATED_DOCUMENTS", "", []);
-registerEntityParser("GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION", "", []);
-registerEntityParser("CSG_SHAPE_REPRESENTATION", "", []);
 
 StepIndexer.prototype.parse = function (entity, parser) {
     var me = this;
@@ -587,7 +697,7 @@ StepIndexer.prototype.parse = function (entity, parser) {
 };
 
 StepIndexer.prototype._parseType = function (obj, entity_line, parser) {
-    // console.log("#", obj._id, "  parsing ".cyan,parser.pattern, ' on line ', entity_line);
+    // xx console.log("#", obj._id, "  parsing ".cyan,parser.pattern, ' on line ', entity_line);
     var me = this;
     var matches = parser.pattern.exec(entity_line);
     if (!matches) {
@@ -714,22 +824,26 @@ StepIndexer.prototype.end = function (data) {
 
 var fs = require("fs");
 
+/*
 function readStep(filename, callback) {
 
-    var indexer = new StepIndexer(callback);
-    indexer.input = fs.createReadStream(filename);
-    indexer.input.pipe(indexer);
-    return indexer;
-}
+    performInitialisation(function()  {
+        var indexer = new StepIndexer(callback);
+        indexer.input = fs.createReadStream(filename);
+        indexer.input.pipe(indexer);
 
+    });
+}
+*/
 
 /**
  * return true if the file is a correct STEP file
- * a correct STEP fole starts with
+ * a correct STEP file starts with
  *     ISO-10303-21;
  *     HEADER;
  *
  * @param filename
+ * @param callback
  */
 function check_STEP_file(filename,callback) {
     // "ISO-10303-21;"
@@ -819,18 +933,22 @@ StepReader.prototype.dumpStatistics = function () {
 
 StepReader.prototype.read = function (filename, callback) {
     var me = this;
-    me.filename = filename;
-    me.input = fs.createReadStream(filename);
-    this.indexer = new StepIndexer(function (err) {
 
-        if (err) { callback(err); return;}
-        callback(null, me);
+    performInitialisation(function() {
+        me.filename = filename;
+        me.input = fs.createReadStream(filename);
+        me.indexer = new StepIndexer(function (err) {
+
+            if (err) { callback(err); return;}
+            callback(null, me);
+        });
+        me.indexer.input = me.input;
+        me.input.pipe(me.indexer);
+
     });
-    this.indexer.input = me.input;
-    me.input.pipe(this.indexer);
     return this.indexer;
 
-}
+};
 
 // var s = readStep("parts/anchor.step",function callback() {
 //	console.log(" Done");
@@ -860,7 +978,6 @@ StepReader.prototype.find_nauo_relating_to = function(product_definition_id) {
     });
     return result;
 };
-
 
 
 
@@ -1000,6 +1117,8 @@ StepReader.prototype.dumpAssemblies = function () {
 
 
 
-//xx exports.readStep = readStepreadStep;
+
 exports.StepReader = StepReader;
 exports.check_STEP_file = check_STEP_file;
+exports.buildRegExp = buildRegExp;
+exports.buildSimplePattern = buildSimplePattern;
