@@ -122,7 +122,7 @@ Grammar.prototype.buildSelectList = function (selectName) {
 
 };
 
-Grammar.prototype.buildProp = function (entityName) {
+Grammar.prototype.buildProp = function (entityName,mapTmp) {
 
     "use strict";
 
@@ -130,20 +130,30 @@ Grammar.prototype.buildProp = function (entityName) {
 
     entityName = entityName.toLowerCase();
 
+    if (mapTmp === undefined ) {
+        mapTmp= {};
+    }
+    var bRecursive = (mapTmp !== false);
+
     var entity = this.entities[entityName];
-    if (entity === null) {
-        console.log(" ERROR / buildProp : cannot find entity with name ", entityName);
+    if (entity === undefined) {
+        console.log((" ERROR / buildProp : cannot find entity with name "+entityName).red);
     }
     var props = [];
 
     // build from SUBTYPE
-    if ( entity.abstract !== undefined) {
+    if (bRecursive && entity.hasOwnProperty('abstract')) {
+
         // console.log('entity Name = ', entityName," => ",entity);
         entity.abstract.forEach(function (a) {
             if (a.abstract === "SUBTYPE_OF") {
                 a.list_id.forEach(function (superTypeName) {
-                    var props_based = self.buildProp(superTypeName);
-                    props = props.concat(props_based);
+                    if (!mapTmp.hasOwnProperty(superTypeName)) {
+                        mapTmp[superTypeName] =superTypeName
+                        var props_based = self.buildProp(superTypeName,mapTmp);
+                        props = props.concat(props_based);
+
+                    }
                 });
             }
         });
@@ -202,8 +212,8 @@ Grammar.prototype.buildProp = function (entityName) {
         if (composite_type === "BOOLEAN") {
             return "B";
         }
-        console.log(" ERROR => p", composite_type);
-        assert(false, "cannot find " + composite_type + " in entities or enumerations");
+        console.log(" ERROR => p", composite_type.red);
+        assert(false, "cannot find '" + composite_type + "' in entities or enumerations");
         return "?";
     }
 
@@ -218,6 +228,113 @@ Grammar.prototype.buildProp = function (entityName) {
     return props;
 };
 
+function buildSimplePattern(props) {
+    "use strict";
+    var s = "";
+    props.forEach(function (p) {
+        s += "," + p.type;
+    });
+    // remove first ','
+    return s.slice(1);
+}
+
+
+function buildRegExp(t) {
+
+    "use strict";
+
+    // console.log("t=",t);
+    var s = ".*\\(\\s*";
+    // BOOLEAN  or LOGICAL
+    t = t.replace(/B/g, "\\s*(\\.T\\.|\\.F\\.|\\.U\\.|\\*|\\$)\\s*");
+    // IDENTIFIER
+    t = t.replace(/I/g, "('[^']*'|\\*|\\$)");
+    // LABEL
+    t = t.replace(/L/g, "('[^']*'|\\*|\\$)");
+    // STRING
+    t = t.replace(/S/g, "('[^']*'|\\*|\\$)");
+    // Set of #
+    t = t.replace(/\[#\]/g, "%");
+    // ENTITY (#123)
+    t = t.replace(/#/g, "(\\*|#[0-9]+)");
+    //xx t = t.replace(/E/g, "#([0-9]+)");
+    // ,
+    t = t.replace(/,/g, "\\s*,\\s*");
+    // SET of #
+    t = t.replace(/%/g, "\\(\\s*([0-9\\s\\#\\,]+)\\s*\\)");
+    // enum
+    t = t.replace(/@/g, "\\s*\\.([A-Za-z_]+)\\.\\s*");
+    // FLOAT
+    t = t.replace(/\[f\]/g, "\\(\\s*(.*)\\s*\\)");
+    t = t.replace(/f/g, "([-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?)");
+    // Integer
+    t = t.replace(/\[f\]/g, "\\(\\s*(.*)\\s*\\)");
+    t = t.replace(/i/g, "([-+]?[0-9]+)");
+
+    s += t;
+    s += "\\s*\\)";
+    return new RegExp(s);
+}
+
+Grammar.prototype.getSingleLineParser = function(entityName) {
+
+    "use strict";
+
+    entityName = entityName.toLowerCase();
+    var entity = this.entities[entityName];
+    var parser;
+
+    if (! entity.hasOwnProperty('singleLineParser')) {
+
+        var props = this.buildProp(entityName);
+        var simplePattern = buildSimplePattern(props);
+        var pattern = buildRegExp(simplePattern);
+
+        parser = {
+            type: "ENTITY",
+            pattern: pattern,
+            simplePattern: simplePattern,
+            props: props,
+            name: entityName
+        };
+        entity.singleLineParser = parser;
+    } else {
+        parser = entity.singleLineParser;
+    }
+
+    return parser;
+};
+
+Grammar.prototype.getPartialLineParser = function(entityName) {
+
+    "use strict";
+
+    entityName = entityName.toLowerCase();
+    var entity = this.entities[entityName];
+    var parser;
+
+    if (! entity.hasOwnProperty('partialLineParser')) {
+
+        var props = this.buildProp(entityName,false);
+        var simplePattern = buildSimplePattern(props);
+        var pattern = buildRegExp(simplePattern);
+
+        parser = {
+            type: "ENTITY",
+            pattern: pattern,
+            simplePattern: simplePattern,
+            props: props,
+            name: entityName
+        };
+        entity.partialLineParser = parser;
+    } else {
+        parser = entity.partialLineParser;
+    }
+
+    return parser;
+
+
+};
 
 
 function parseSchema(input, callback) {
@@ -248,6 +365,9 @@ function readSchema(filename, callback) {
 }
 
 
+
+
 exports.readSchema = readSchema;
 exports.parseSchema = parseSchema;
-
+exports.buildSimplePattern = buildSimplePattern;
+exports.buildRegExp = buildRegExp;

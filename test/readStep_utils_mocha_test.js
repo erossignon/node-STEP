@@ -1,24 +1,27 @@
-var STEP = require("../readStep");
 var should = require("should");
 var assert = require("assert");
+
+var buildRegExp = require("../readExpressSchema").buildRegExp;
+var buildSimplePattern = require("../readExpressSchema").buildSimplePattern;
 
 
 describe("test buildRegExp", function () {
 
+
     it("buildRegExp should create a correct RegExp with #", function (done) {
 
-        var reg = STEP.buildRegExp("#");
+        var reg = buildRegExp("#");
         console.log(reg);
 
         var matches = reg.exec("(#123)");
         // console.log(matches);
         matches.length.should.be.equal(2);
-        matches[1].should.equal('123');
+        matches[1].should.equal('#123');
 
         matches = reg.exec("unused stuff (   #123  ) ");
         // console.log(matches);
         matches.length.should.be.equal(2);
-        matches[1].should.equal('123');
+        matches[1].should.equal('#123');
 
         done();
 
@@ -26,7 +29,7 @@ describe("test buildRegExp", function () {
 
     it("buildRegExp should create a correct RegExp with S", function (done) {
 
-        var reg = STEP.buildRegExp("S");
+        var reg = buildRegExp("S");
         console.log(reg);
 
         var matches = reg.exec("('some_text')");
@@ -53,7 +56,7 @@ describe("test buildRegExp", function () {
     });
     it("buildRegExp should create a correct RegExp with B", function (done) {
 
-        var reg = STEP.buildRegExp("B");
+        var reg = buildRegExp("B");
         console.log(reg);
 
         var matches = reg.exec("( .T. )");
@@ -80,13 +83,14 @@ describe("test buildRegExp", function () {
 
     });
     it('buildRegExp should create a correct RegExp with #,B,S', function(done) {
-        var reg = STEP.buildRegExp("#,B,S");
+
+        var reg = buildRegExp("#,B,S");
         console.log(reg);
 
         var matches = reg.exec("(#123,.T.,'toto')");
         // console.log(matches);
         matches.length.should.be.equal(4);
-        matches[1].should.equal("123");
+        matches[1].should.equal("#123");
         matches[2].should.equal(".T.");
         matches[3].should.equal("'toto'");
 
@@ -94,7 +98,7 @@ describe("test buildRegExp", function () {
     });
     it('buildRegExp should create a correct RegExp with [#]', function(done) {
 
-        var reg = STEP.buildRegExp("[#]");
+        var reg = buildRegExp("[#]");
         console.log(reg);
 
         var matches = reg.exec("( ( #123, #456, #789 ) )");
@@ -102,6 +106,41 @@ describe("test buildRegExp", function () {
         matches.length.should.be.equal(2);
         matches[1].should.equal("#123, #456, #789 ");
 
+        done();
+    });
+
+    it("buildRegExp should create a correct RegExp with 'f'",function(done) {
+
+        var reg = buildRegExp('f');
+        //Xx console.log(reg);
+
+        var matches = reg.exec("  (124)");
+        matches.length.should.be.equal(3);
+        matches[1].should.equal("124");
+
+        matches = reg.exec("  (124.123)");
+        //Xx console.log(matches);
+        matches.length.should.be.equal(3);
+        matches[1].should.equal("124.123");
+
+        matches = reg.exec("  (-1.123E-12)");
+        matches.length.should.be.equal(3);
+        matches[1].should.equal("-1.123E-12");
+        done();
+    });
+
+    it("buildRegExp should create a correct RegExp with '[f]'",function(done) {
+
+        var reg = buildRegExp('[f]');
+        console.log(reg);
+
+        var matches = reg.exec("((124))");
+        matches.length.should.be.equal(2);
+        matches[1].should.equal("124");
+
+        matches = reg.exec("((124.45,12.12,2E-9))");
+        matches.length.should.be.equal(2);
+        matches[1].should.equal("124.45,12.12,2E-9");
         done();
     });
 });
@@ -122,13 +161,11 @@ describe("test buildSimplePattern",function(){
 
             }];
 
-        var str = STEP.buildSimplePattern(props);
+        var str = buildSimplePattern(props);
 
         str.should.equal("S,#");
 
         done();
-
-
 
     });
 

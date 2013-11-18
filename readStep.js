@@ -4,658 +4,233 @@
  *
  *  Author : Etienne Rossignon ( etienne.rossignon@gadz.org )
  */
-
 require('colors');
+
 var util = require("util");
 var assert = require('assert');
 var Table = require('easy-table');
+var fs = require("fs");
 
-// http://www.steptools.com/support/stdev_docs/express/ap203/html/index.html
-var waiting_file_type = 1;
-var waiting_section = 2; // HEADER; or DATA;
-var in_header_section = 3;
-var in_data_section = 4;
-var parsing_complete = 5;
+var check_STEP_file = require("./stepIndexer").check_STEP_file;
 
-var pattern_ISO_10303_21 = /ISO-10303-21;/;
-var pattern_HEADER = /HEADER;/;
-var pattern_DATA = /DATA;/;
-var pattern_ENDSEC = /ENDSEC;/;
+var ExpressParser = require("./parseExpressFile").ExpressParser;
 
-var verbose = false;
-/**
- *
- * @param callback
- * @constructor
- */
-var StepIndexer = function (callback) {
 
-    "use strict";
+var step_grammar = null;
 
-    this.lastLine = "";
-    this.entries = { };
-    this.types = {};
-    this.typesRev = {};
-    this.callback = callback;
-
-    // pattern for simple step line #123=TOTO(....)
-    this.patternSimple = /^(\w+)\s*(\(.*\))\s*;/;
-
-    this.startLinePattern = /\#([0-9]+)\s*=\s*(.*)/;  // something like # 123 = ...
-
-    this.curLine = "";
-
-    this.bad_STEP_file = false;
-
-    this.status = waiting_file_type;
-
-    this.header = []; // un parsed header
-
-};
-
-util.inherits(StepIndexer, require("stream"));
-
-StepIndexer.prototype._getTypeIndex = function (strType) {
-    "use strict";
-    var me = this;
-    var typeIndex;
-    if (me.types.hasOwnProperty(strType)) {
-        typeIndex = me.types[strType];
-    } else {
-        //typeIndex = { key: me.typeCounter++ , array: []};
-        typeIndex = { key: strType, array: []};
-        me.types[strType] = typeIndex;
-        me.typesRev[typeIndex.key] = strType;
-    }
-    return typeIndex;
-};
-
-function trim(str) {
-    "use strict";
-    return str.replace(/^\s+/g, '').replace(/\s+$/g, '');
-}
-
-
-/**
- * _splitComplexLine processes a complex step line.
- * of the form
- *     IDENTIFIER(x,y,(x,y,e),y)IDENTIFIER2(1,2,#1232)....
- *
- * @param line
- * @returns {Array}
- * @private
- */
-StepIndexer.prototype._splitComplexLine = function (line) {
-
-    "use strict";
-
-    var me = this;
-    var array = [];
-    var i = 1;
-    var n = line.length - 2;
-    var s;
-    while (i < n) {
-        s = i;
-
-        // skip identifier
-        while (line[i] !== '(' && i < n) {
-            i++;
-            if (i >= n) { break;}
-        }
-
-        var identifier = trim(line.substr(s, i - s));
-
-        // find balanced closing )
-        var parLevel = 1;
-        s = i;
-        i+=1;
-
-        while ((line[i] !== ')') || parLevel !== 1) {
-            if (line[i] === ')')  { parLevel--;}
-            if (line[i] === '(')  { parLevel++;}
-            i++;
-            if (i >= n) { break; }
-        }
-
-        var content = line.substr(s, i - s + 1);
-        i++;
-        if (identifier !== '') {
-            var typeIndex = me._getTypeIndex(identifier);
-            array.push({ type: typeIndex.key, args: content});
-        }
-    }
-    return array;
-};
-
-
-StepIndexer.prototype.write = function (data) {
-
-    "use strict";
-
-    var me = this;
-
-    if (me.bad_STEP_file) {
-        console.log("bad step");
-        return;
-    }
-
-    var lines = (this.lastLine + data.toString()).split(/\r\n|\n/);
-
-    this.lastLine = lines.splice(lines.length - 1)[0];
-
-    var matches,line_m,num,typeIndex,entry,type;
-
-    lines.forEach(function (line /*, index, array*/) {
-
-        if (me.bad_STEP_file) {
-            return;
-        }
-
-        if (me.status === waiting_file_type) {
-            if (pattern_ISO_10303_21.test(line)) {
-                me.status = waiting_section;
-                return;
-            } else {
-                me.bad_STEP_file = true;
-                // destroy the input stream
-                me.input.destroy();
-                return;
-            }
-
-        }
-
-        if (me.status === waiting_section) {
-            if (pattern_HEADER.test(line)) {
-                me.status = in_header_section;
-                return;
-            } else if (pattern_DATA.test(line)) {
-                me.status = in_data_section;
-                return;
-            }
-        }
-
-        if (me.status === in_header_section) {
-
-            if (pattern_ENDSEC.test(line)) {
-                me.status = waiting_section;
-                return;
-            }
-            me.header.push(line);
-
-        } else if (me.status === in_data_section) {
-
-            if (pattern_ENDSEC.test(line)) {
-                me.status = parsing_complete;
-                return;
-            }
-
-            matches = me.startLinePattern.exec(line);
-            if (matches) {
-                me.curNum = matches[1];
-                me.curLine = matches[2];
-            } else {
-                me.curLine += line;
-            }
-            if (me.curLine[me.curLine.length - 1] === ';') {
-
-                matches = me.patternSimple.exec(me.curLine);
-
-                if (matches) {
-                    // we have identify a simple form step line
-                    // example:
-                    //     #1234=EDGE_LOOP('',(#234));
-                    //
-                    num       = me.curNum;
-                    type      = matches[1];
-                    line_m    = matches[2];
-
-                    // keep track of this
-                    typeIndex = me._getTypeIndex(type);
-                    typeIndex.array.push(num);
-                    assert(typeIndex.key === type);
-
-                    entry     = {
-                        _id: num,
-                        type: typeIndex.key,
-                        line: line_m
-                    };
-                    me.entries[num] = entry;
-
-
-                } else {
-                    // this is probably a complex form step line
-                    // example:
-                    // #1307=(NAMED_UNIT(*)SI_UNIT($,.STERADIAN.)SOLID_ANGLE_UNIT());
-                    //
-                    num       = me.curNum;
-                    entry     = {
-                        _id: num,
-                        types: me._splitComplexLine(me.curLine)
-                    };
-
-                    me.entries[num] = entry;
-
-                    entry.types.forEach(function (element) {
-                        var type = element.type;
-                        var typeIndex = me._getTypeIndex(type);
-                        typeIndex.array.push(num);
-                    });
-                }
-            }
-        }
-    });
-};
-
-function buildRegExp(t) {
-
-    "use strict";
-
-    var s = ".*\\(\\s*";
-    // BOOLEAN
-    t = t.replace(/B/g, "\\s*(\\.T\\.|\\.F\\.|\\.U\\.|\\*|\\$)\\s*");
-    // IDENTIFIER
-    t = t.replace(/I/g, "('[^']*'|\\*|\\$)");
-    // LABEL
-    t = t.replace(/L/g, "('[^']*'|\\*|\\$)");
-    // STRING
-    t = t.replace(/S/g, "('[^']*'|\\*|\\$)");
-    // Set of #
-    t = t.replace(/\[#\]/g, "%");
-    // ENTITY (#123)
-    t = t.replace(/#/g, "#([0-9]+)");
-    t = t.replace(/E/g, "#([0-9]+)");
-    // ,
-    t = t.replace(/,/g, "\\s*,\\s*");
-    // SET of #
-    t = t.replace(/%/g, "\\(\\s*([0-9\\s\\#\\,]+)\\s*\\)");
-    // enum
-    t = t.replace(/@/g, "\\s*\\.([A-Za-z_]+)\\.\\s*");
-    s += t;
-    s += ".*\\s*\\)";
-    return new RegExp(s);
-}
-
-var parsers = {};
-
-function buildSimplePattern(props) {
-    "use strict";
-    var s = "";
-    props.forEach(function (p) {
-        s += "," + p.type;
-    });
-    // remove first ','
-    return s.slice(1);
-}
-
-
-function constructParsingEngine(done) {
-
-    "use strict";
-    assert(done);
-
-    var SCHEMA = require("./readExpressSchema");
-
-    SCHEMA.readSchema("./specs/wg3n916_ap203.exp", function (err, grammar) {
-        if (!err) {
-            console.log(" entities", grammar.entities);
-
-            var keys_ = Object.keys(grammar.entities);
-
-            var keys = [
-                "PRODUCT_DEFINITION_FORMATION",
-                "PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE",
-                "PRODUCT_DEFINITION_CONTEXT",
-                "PRODUCT_DEFINITION",
-                "DESIGN_CONTEXT",
-                "PRODUCT",
-                "PRODUCT_CONTEXT",
-                "MECHANICAL_CONTEXT",
-                "APPLICATION_CONTEXT",
-                "SHAPE_DEFINITION_REPRESENTATION",
-                "REPRESENTATION_RELATIONSHIP",
-                "REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION",
-                "SHAPE_REPRESENTATION_RELATIONSHIP",
-                "PROPERTY_DEFINITION",
-                "SHAPE_DEFINITION_REPRESENTATION",
-                "PRODUCT_DEFINITION_SHAPE",
-                "PRODUCT_DEFINITION_USAGE",
-                "ASSEMBLY_COMPONENT_USAGE",
-                "NEXT_ASSEMBLY_USAGE_OCCURRENCE",
-                "MAPPED_ITEM",
-                "REPRESENTATION_MAP",
-                "AXIS2_PLACEMENT_3D",
-                "REPRESENTATION_ITEM",
-                "REPRESENTATION_CONTEXT",
-                "REPRESENTATION",
-                "SHAPE_REPRESENTATION",
-                "ADVANCED_BREP_SHAPE_REPRESENTATION",
-                "FACETED_BREP_SHAPE_REPRESENTATION",
-                "GEOMETRIC_REPRESENTATION_ITEM",
-                "GEOMETRIC_REPRESENTATION_CONTEXT",
-                "GLOBAL_UNIT_ASSIGNED_CONTEXT",
-                "GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT",
-                "SOLID_MODEL",
-                "MANIFOLD_SOLID_BREP",
-                "BREP_WITH_VOIDS",
-                "FACETED_BREP",
-                "TOPOLOGICAL_REPRESENTATION_ITEM",
-                "FACE",
-                "ADVANCED_FACE",
-                "FACE_BOUND",
-                "FACE_OUTER_BOUND",
-                "LOOP",
-                "EDGE_LOOP",
-                "SURFACE",
-                "SHAPE_ASPECT",
-                "PRODUCT_DEFINITION_WITH_ASSOCIATED_DOCUMENTS",
-                "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION",
-                "TRIMMED_CURVE",
-                "DEFINITIONAL_REPRESENTATION",
-                "PARAMETRIC_REPRESENTATION_CONTEXT"
-            ];
-
-
-            keys.forEach(function (entityName) {
-
-                entityName = entityName.toUpperCase();
-                var props = grammar.buildProp(entityName);
-
-                var simplePattern = buildSimplePattern(props);
-
-                console.log(" pattern for ", entityName, " = ", simplePattern);
-
-                for (var p in props) {
-                    if (props.hasOwnProperty(p) ) {
-                        console.log("    prop", props[p].type, props[p].name, props[p].class);
-                    }
-                }
-
-                var pattern = buildRegExp(simplePattern);
-                // console.log(" name = ",name, simplePattern);
-                parsers[entityName] = {
-                    type: "ENTITY",
-                    pattern: pattern,
-                    props: props,
-                    name: entityName
-                };
-            });
-
-            var keys_select = Object.keys(grammar._selects);
-            keys_select.forEach(function (selectName) {
-                selectName = selectName.toUpperCase();
-                var list_select = grammar.buildSelectList(selectName);
-                parsers[selectName] = {
-                    type: "SELECT",
-                    select: list_select
-                };
-
-            });
-
-            done();
-        } else {
-            done(err);
-        }
-    });
-}
-
-var init_done = false;
 function performInitialisation(done) {
 
     "use strict";
-
-    if (init_done) {
+    if (step_grammar !== null) {
         done();
     } else {
-        constructParsingEngine(function () {
-            init_done = true;
-            // process.exit();
-            done();
+        var SCHEMA = require("./readExpressSchema");
+
+        SCHEMA.readSchema("./specs/wg3n916_ap203.exp", function (err, grammar) {
+            if (!err) {
+                step_grammar = grammar;
+                done();
+            } else {
+                done(err);
+            }
         });
     }
 }
 
-StepIndexer.prototype.parse = function (entity, parser) {
+
+
+
+
+function StepReader() {
+    "use strict";
+}
+
+
+var keys = [
+    "PRODUCT_DEFINITION_FORMATION",
+    "PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE",
+    "PRODUCT_DEFINITION_CONTEXT",
+    "PRODUCT_DEFINITION",
+    "DESIGN_CONTEXT",
+    "PRODUCT",
+    "PRODUCT_CONTEXT",
+    "MECHANICAL_CONTEXT",
+    "APPLICATION_CONTEXT",
+    "SHAPE_DEFINITION_REPRESENTATION",
+    "REPRESENTATION_RELATIONSHIP",
+    "REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION",
+    "SHAPE_REPRESENTATION_RELATIONSHIP",
+    "PROPERTY_DEFINITION",
+    "SHAPE_DEFINITION_REPRESENTATION",
+    "PRODUCT_DEFINITION_SHAPE",
+    "PRODUCT_DEFINITION_USAGE",
+    "ASSEMBLY_COMPONENT_USAGE",
+    "NEXT_ASSEMBLY_USAGE_OCCURRENCE",
+    "MAPPED_ITEM",
+    "REPRESENTATION_MAP",
+    "AXIS2_PLACEMENT_3D",
+    "REPRESENTATION_ITEM",
+    "REPRESENTATION_CONTEXT",
+    "REPRESENTATION",
+    "SHAPE_REPRESENTATION",
+    "ADVANCED_BREP_SHAPE_REPRESENTATION",
+    "FACETED_BREP_SHAPE_REPRESENTATION",
+    "GEOMETRIC_REPRESENTATION_ITEM",
+    "GEOMETRIC_REPRESENTATION_CONTEXT",
+    "GLOBAL_UNIT_ASSIGNED_CONTEXT",
+    "GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT",
+    "SOLID_MODEL",
+    "MANIFOLD_SOLID_BREP",
+    "BREP_WITH_VOIDS",
+    "FACETED_BREP",
+    "TOPOLOGICAL_REPRESENTATION_ITEM",
+    "FACE",
+    //"ADVANCED_FACE",
+    "FACE_BOUND",
+    "FACE_OUTER_BOUND",
+    "LOOP",
+    "EDGE_LOOP",
+    "SURFACE",
+    "SHAPE_ASPECT",
+    "PRODUCT_DEFINITION_WITH_ASSOCIATED_DOCUMENTS",
+    "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION",
+    // "TRIMMED_CURVE",
+    "DEFINITIONAL_REPRESENTATION",
+    "PARAMETRIC_REPRESENTATION_CONTEXT",
+    "CARTESIAN_POINT",
+    "DIRECTION",
+    "CLOSED_SHELL",
+    "REPRESENTATION_RELATIONSHIP",
+    "REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION",
+    "SHAPE_REPRESENTATION_RELATIONSHIP",
+    "GEOMETRIC_REPRESENTATION_CONTEXT",
+    "GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT",
+    "GLOBAL_UNIT_ASSIGNED_CONTEXT",
+    "REPRESENTATION_CONTEXT"
+
+];
+
+var interesting_types = {};
+
+keys.forEach(function(key){
+    "use strict";
+    interesting_types[key]=1;
+});
+
+function has_an_interesting_type(entity) {
 
     "use strict";
 
+    if (entity.hasOwnProperty('type')) {
+       // simple entity
+        return interesting_types.hasOwnProperty(entity.type);
+    }
+    // complex type
+    var c = 0;
+    entity.types.forEach(function (e) {
+        if (interesting_types.hasOwnProperty(e.type.toUpperCase())) {
+            c+=1;
+        }
+    });
+    // console.log(" C= ",c ,entity.types.length);
+    if (!(c === 0 || c === entity.types.length)) {
+        console.log(" c = ",c," l=",entity.types.length);
+        console.log(" @@@@@@@@@@@@@@@@@@@@@@@@@@@@".blue.bold,JSON.stringify(entity,null," "));
+    }
+    assert( (c === 0 || c === entity.types.length) , " invalid composite entity");
+
+    return c>0;
+}
+var aaaa = {};
+StepReader.prototype.resolve_entity_id = function(entity_id) {
+
+    "use strict";
+    var me = this;
+    // remove leading #
+    if (entity_id[0] === '#' ) {
+        entity_id = entity_id.substr(1);
+    }
+    var entity = me.indexer.entries[entity_id];
+    if (entity === undefined) {
+        console.log(" cannot find entity id",entity_id);
+        return entity_id;
+    }
+
+    function _f(entity) {
+        if (entity.hasOwnProperty('type'))  {
+            return entity.type;
+        } else {
+            var str = "";
+            entity.types.forEach(function(e) { str+= e.type + "/" ;});
+            return str;
+        }
+    }
+
+    if (!has_an_interesting_type(entity)) {
+        var s = _f(entity);
+        if (!aaaa.hasOwnProperty(s)) {
+            console.log(" Not interested in ", _f(entity));
+            aaaa[s] = s;
+        }
+        return entity_id;
+    }
+    // check if entity is allowed
+    if ( entity.type === "NEXT_ASSEMBLY_USAGE_OCCURRENCE") {
+        var a =1;
+    }
+    return me.parse(entity);
+};
+
+StepReader.prototype.parse = function(entity) {
+
+    "use strict";
     var me = this;
 
-    var obj = {};
-    obj._id = entity._id;
+    if (entity === undefined) {
+        return  {};
+    }
 
+    // check if object has already been parsed
     if (entity.object) {
         return entity.object;
     }
 
-    if (!parser) {
+    var obj = {};
+    obj._id = entity._id;
 
-        if (entity.type) {
-
-            //  this is a simple type
-            var type = me.typesRev[entity.type];
-            parser = parsers[type];
-            if (!parser) {
-                console.log(" Error !!! cannot get parser for ".red, entity.type, " in ".red, type, entity);
-            }
-
-            me._parseType(obj, entity.line, parser);
-            // console.log("type ", type,parser);
-
-
-        } else {
-            // this is a complex type
-
-            assert(entity.types instanceof Array);
-
-            // let parse each segment
-            entity.types.forEach(function (el) {
-
-                var type = me.typesRev[el.type];
-
-                parser = parsers[type];
-
-                if (!parser) {
-                    console.log(" Error !!! cannot get parser for ".yellow, type, " in ".yellow, entity);
-                } else {
-                    me._parseType(obj, el.args, parser);
-                }
-            });
-        }
+    if (entity.type) {
+        //  this is a simple type
+        me.expressParser.parseSimpleStepLine(entity.type,entity.raw_data,obj);
     } else {
-        me._parseType(obj, entity.line, parser);
+        // this is a complex type
+        me.expressParser.parseComplexStepLine(entity.types,obj);
     }
 
-    // mark the entity as being parsed by caching the resulting object and clearing the original line
-    // which is no more required.
+    // mark the entity as being parsed by caching the resulting object and
+    // clearing the original line which is no more required.
     entity.object = obj;
-    entity.line = null;
+    entity.raw_data = null;
 
     return obj;
 };
-
-StepIndexer.prototype._parseType = function (obj, entity_line, parser) {
-
-    "use strict";
-    if (!parser) {
-        console.log(" missing parser".red.bold);
-        return {};
-    }
-    if (verbose) {
-        console.log(parser.name," #", obj._id, "  parsing ".cyan,parser.pattern, ' on line ', entity_line);
-    }
-    var me = this;
-    var matches = parser.pattern.exec(entity_line);
-
-    if (!matches) {
-        console.log("#", obj._id, parser.name, " cannot parse ".red, parser.pattern, ' on line ', entity_line);
-        return {};
-    }
-    if (matches.length - 1 !== parser.props.length) {
-        console.log(" warning : not enough element found in ".green);
-        console.log(" parsing ", ((parser.pattern) + "").red);
-        console.log(" on line ", entity_line.cyan);
-        console.log(matches);
-    }
-
-    if (obj._class) {
-        if ( ! obj instanceof Array) {
-            var tmp = obj._class;
-            obj._class = [ tmp ];
-        }
-        obj._class.push(parser.name);
-    } else {
-        obj._class = parser.name;
-    }
-
-
-    function resolove_entity_id(entity_id) {
-        var entity = me.entries[entity_id];
-        if (entity === null) {
-            return entity_id;
-        }
-        return me.parse(entity,null);
-    }
-
-    for (var i = 0; i < matches.length - 1; i++) {
-
-        var property = parser.props[i];
-
-        var value = matches[i + 1];
-
-        if (property.type === '[#]') {
-
-            // parse the array of ids
-
-            var array_of_ids = [];
-            var r = /#([0-9]+),{0,1}/g;
-
-            var m;
-            while ( (m = r.exec(value)) !== null ) {
-                array_of_ids.push(m[1]);
-            }
-            value = array_of_ids;
-        }
-
-        // add a property to the object with the specified value
-        obj[property.name] = value;
-
-        // if the property is a pointer to an other entity
-        // or a array of pointer, let recursively
-        // resolve ids to objects
-        if (property.class ) {
-
-            if (parsers[property.class]) {
-                // a parser exists,
-                if (value instanceof Array) {
-                    obj[property.name] = value.map(resolove_entity_id) ;
-                } else {
-                    obj[property.name] = resolove_entity_id(value);
-                }
-            } else {
-                if ( ! property.class in ["LABEL","TEXT","IDENTIFIER"])  {
-                    console.log(" No parser to resolve property ".yellow,property.name ,
-                        "#",value, " into ".yellow, property.class);
-
-                }
-            }
-        }
-    }
-    return obj;
-};
-
-
-StepIndexer.prototype.end = function (data) {
-
-    "use strict";
-
-    assert(data === undefined);
-    // console.log(" END with ", data);
-    var me = this;
-    if (me.status !== parsing_complete) {
-        me.bad_STEP_file = true;
-        me.callback(new Error("Invalid step file"));
-    } else {
-        me.callback();
-    }
-};
-
-var fs = require("fs");
-
-/**
- * return true if the file is a correct STEP file
- * a correct STEP file starts with
- *     ISO-10303-21;
- *     HEADER;
- *
- * @param filename
- * @param callback
- */
-function check_STEP_file(filename, callback) {
-
-    "use strict";
-
-    // "ISO-10303-21;"
-    // "HEADER;"
-    var stream = fs.createReadStream(filename, "r");
-
-    var fileData = "";
-    stream.on('data', function (data) {
-        fileData += data;
-
-        // The next lines should be improved
-        var lines = fileData.split("\n");
-
-        if (lines.length >= 2) {
-
-            stream.destroy();
-            if (!pattern_ISO_10303_21.test(lines[0])) {
-                my_callback(new Error("this file is not a STEP FILE : ISO_10303_21 missing"));
-            } else {
-                my_callback(null, lines[0]);
-            }
-        }
-    });
-    stream.on('error', function () {
-        my_callback('Error', null);
-    });
-
-    stream.on('end', function () {
-        my_callback('File end reached without finding line', null);
-    });
-
-    var callback_called = false;
-
-    function my_callback(err, data) {
-        if (!callback_called) {
-            callback_called = true;
-            callback(err, data);
-        }
-    }
-}
-function StepReader() {
-    "use strict";
-}
 
 StepReader.prototype.getObjects = function (className) {
 
     "use strict";
 
-    var me = this.indexer;
-    if (!me.types.hasOwnProperty(className)) {
+    var me = this;
+    if (!me.indexer.types.hasOwnProperty(className)) {
         return [];
     }
-    return me.types[className].array.map(function (num) {
+    return me.indexer.types[className].array.map(function (entity_id) {
         //console.log(num);
-        return me.parse(me.entries[num]);
+        return me.resolve_entity_id(entity_id);
     });
 };
 
-StepReader.prototype.getEntity = function (id) {
-
+StepReader.prototype.getEntity = function (entity_id) {
     "use strict";
-
-    var me = this.indexer;
-    return me.entries["" + id];
+    return this.resolve_entity_id(entity_id);
 };
 
 StepReader.prototype.dumpStatistics = function () {
@@ -692,18 +267,25 @@ StepReader.prototype.read = function (filename, callback) {
     var me = this;
 
     performInitialisation(function () {
-        me.filename = filename;
-        me.input = fs.createReadStream(filename);
-        me.indexer = new StepIndexer(function (err) {
 
+        me.filename = filename;
+
+        var buildStepIndex = require("./stepIndexer").buildStepIndex;
+
+        buildStepIndex(filename,function (err,indexer) {
+            me.indexer = indexer;
             if (err) {
                 callback(err);
                 return;
             }
+
+            function resolve_entiy(entity_id)  {
+                return me.resolve_entity_id(entity_id);
+            }
+            me.expressParser = new ExpressParser(step_grammar,resolve_entiy);
+
             callback(null, me);
         });
-        me.indexer.input = me.input;
-        me.input.pipe(me.indexer);
 
     });
     return this.indexer;
@@ -745,8 +327,16 @@ function bindShapeRelationship(reader) {
     var srrs = reader.getObjects("SHAPE_REPRESENTATION_RELATIONSHIP");
 
     srrs.forEach(function (srr) {
+
         var sr = srr.rep_1; // shape representation
-        sr._____shape = srr.rep_2;
+
+        if (sr !== undefined) {
+            sr._____shape = srr.rep_2;
+        } else {
+            console.log(" file  :".red,reader.filename);
+            console.log(" bindShapeRelationship FAILING with".red,JSON.stringify(srr,null," "));
+            process.exit();
+        }
     });
 }
 
@@ -820,9 +410,11 @@ StepReader.prototype.dumpAssemblies = function () {
 
         root.nodes.push(node);
 
-        //xx console.log("=================================================================================");
-        // console.log(util.inspect(sdr,{ colors: true, depth:10}));
-        //xx console.log(" NAME = ".yellow, sdr.definition.name);// , sdr.definition.description.yellow);
+        if (false) {
+            console.log("=================================================================================");
+            console.log(util.inspect(sdr,{ colors: true, depth:10}));
+            console.log(" NAME = ".yellow, sdr.definition.name);// , sdr.definition.description.yellow);
+        }
 
         if (sdr.definition.definition._class === 'PRODUCT_DEFINITION') {
 
@@ -886,5 +478,3 @@ StepReader.prototype.dumpAssemblies = function () {
 
 exports.StepReader = StepReader;
 exports.check_STEP_file = check_STEP_file;
-exports.buildRegExp = buildRegExp;
-exports.buildSimplePattern = buildSimplePattern;
