@@ -6,6 +6,7 @@ This projet provides a very basic EXPRESS grammar
 It focuses in exploring part assemblies inside STEP files as per AP 203.
 
 
+[![Build Status](https://travis-ci.org/erossignon/node-STEP.png?branch=master)](https://travis-ci.org/erossignon/node-STEP)
 
 
  ```javascript
