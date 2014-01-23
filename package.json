@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "colors": "~0.6.2",
-    "mocha": *
+    "mocha": "*"
   },
   "dependencies": {
     "colors": "~0.6.2",
