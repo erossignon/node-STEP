@@ -30,7 +30,8 @@
     "url": "https://github.com/erossignon/node-STEP/issues"
   },
   "devDependencies": {
-    "colors": "~0.6.2"
+    "colors": "~0.6.2",
+    "mocha": *
   },
   "dependencies": {
     "colors": "~0.6.2",
