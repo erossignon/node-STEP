@@ -35,8 +35,8 @@
   },
   "dependencies": {
     "colors": "~0.6.2",
-    "should": "~1.2.2",
-    "walk": "~2.2.1",
+    "should": "*",
+    "walk": "~2.3.1",
     "cli-table": "~0.2.0",
     "archy": "0.0.2",
     "easy-table": "~0.2.0",

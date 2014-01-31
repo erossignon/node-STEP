@@ -7,7 +7,10 @@ It focuses in exploring part assemblies inside STEP files as per AP 203.
 
 
 [![Build Status](https://travis-ci.org/erossignon/node-STEP.png?branch=master)](https://travis-ci.org/erossignon/node-STEP)
+[![Dependency Status](https://gemnasium.com/erossignon/node-STEP.png)](https://gemnasium.com/erossignon/node-STEP)
 
+[![NPM](https://nodei.co/npm-dl/node-step.png)](https://nodei.co/npm/node-step/)
+[![NPM](https://nodei.co/npm/node-step.png?downloads=true&stars=true)](https://nodei.co/npm/node-step/)
 
  ```javascript
  var STEP = require("node-step");
