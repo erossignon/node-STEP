@@ -30,17 +30,17 @@
     "url": "https://github.com/erossignon/node-STEP/issues"
   },
   "devDependencies": {
-    "colors": "~0.6.2",
+    "colors": "~1.1.2",
     "mocha": "*"
   },
   "dependencies": {
-    "colors": "~0.6.2",
+    "colors": "~1.1.2",
     "should": "*",
-    "walk": "~2.3.1",
-    "cli-table": "~0.2.0",
-    "archy": "0.0.2",
-    "easy-table": "~0.2.0",
-    "jison": "~0.4.13",
-    "mstring": "~0.1.1"
+    "walk": "~2.3.9",
+    "cli-table": "~0.3.1",
+    "archy": "1.0.0",
+    "easy-table": "~1.0.0",
+    "jison": "~0.4.17",
+    "mstring": "~0.1.2"
   }
 }

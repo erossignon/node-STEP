@@ -279,7 +279,7 @@ function check_STEP_file(filename, callback) {
 
     // "ISO-10303-21;"
     // "HEADER;"
-    var stream = fs.createReadStream(filename, "r");
+    var stream = fs.createReadStream(filename, {flags:"r"});
 
     var fileData = "";
     stream.on('data', function (data) {
