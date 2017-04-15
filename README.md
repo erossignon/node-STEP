@@ -129,3 +129,7 @@ to generate the EXPRESS parser with jison
 
 
 see http://www.jsdai.net/download
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/erossignon/node-step/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
