@@ -392,7 +392,7 @@ StepReader.prototype.dumpAssemblies = function () {
     var sdrs = reader.getObjects("SHAPE_DEFINITION_REPRESENTATION");
     var srrs = reader.getObjects("SHAPE_REPRESENTATION_RELATIONSHIP");
 
-    fs.writeFile("toto.out", JSON.stringify({ sdrs: sdrs, srrs: srrs}, null, " "));// util.inspect(sdrs,{depth: 30}));
+    fs.writeFileSync("toto.out", JSON.stringify({ sdrs: sdrs, srrs: srrs}, null, " "));// util.inspect(sdrs,{depth: 30}));
 
     sdrs.forEach(function (sdr) {
 
